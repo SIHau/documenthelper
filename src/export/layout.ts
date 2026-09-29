@@ -154,9 +154,15 @@ export function buildBlocks(doc: OfficialDocument): Block[] {
   return blocks;
 }
 
-/** 檔名：文種_日期_主旨前 15 字，移除檔名不允許的字元 */
+const INVALID_NAME_CHARS = /[\\/:*?"<>|\s]/g;
+
+/**
+ * 檔名：優先使用發文字號（例：裙萌議侯字第20261140416001號.pdf）。
+ * 尚未填寫發文字號時，改用「文種_日期_主旨前 15 字」，避免多份稿件檔名相同。
+ */
 export function exportFileName(doc: OfficialDocument, ext: string): string {
-  const subject = doc.subject.replace(/[\\/:*?"<>|\s]/g, '').slice(0, 15);
-  const parts = [doc.type, doc.date, subject].filter(Boolean);
-  return `${parts.join('_')}.${ext}`;
+  const number = doc.docNumber.replace(INVALID_NAME_CHARS, '');
+  if (number) return `${number}.${ext}`;
+  const subject = doc.subject.replace(INVALID_NAME_CHARS, '').slice(0, 15);
+  return `${[doc.type, doc.date, subject].filter(Boolean).join('_')}.${ext}`;
 }

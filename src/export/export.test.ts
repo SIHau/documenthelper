@@ -26,8 +26,13 @@ describe('buildBlocks', () => {
     expect(text).toContain('承辦人：侯承佑');
     expect(text[text.length - 1]).toContain('侯承佑');
   });
-  it('names export files safely', () => {
-    expect(exportFileName(sample(), 'odt')).toBe('函_2025-03-20_有關&<提供>日程一案，請查照。'.replace(/[<>"]/g, '') + '.odt');
+  it('names export files after the document number', () => {
+    const d = { ...sample(), docNumber: '裙萌議侯字第 2026/1140416001號' };
+    expect(exportFileName(d, 'pdf')).toBe('裙萌議侯字第20261140416001號.pdf');
+    expect(exportFileName(d, 'odt')).toBe('裙萌議侯字第20261140416001號.odt');
+  });
+  it('falls back to type/date/subject when there is no document number', () => {
+    expect(exportFileName({ ...sample(), docNumber: '' }, 'odt')).toBe('函_2025-03-20_有關&提供日程一案，請查照。.odt');
   });
 });
 
