@@ -27,7 +27,16 @@
 
 ### 方式一：桌面程式（推薦）
 
-1. 到 GitHub 專案的 **Actions** 頁面，執行「桌面版打包」，完成後在該次執行的 **Artifacts** 下載對應系統的安裝檔（Windows：`.msi`／`.exe`，macOS：`.dmg`，Linux：`.deb`／`.AppImage`）。
+1. 開啟專案的 **[Releases 頁面](https://github.com/SIHau/documenthelper/releases/latest)**，在最新版本底下的 **Assets** 下載對應系統的安裝檔：
+
+   | 系統 | 下載檔案 |
+   |---|---|
+   | Windows | `…_x64-setup.exe` |
+   | macOS（Intel 與 Apple 晶片皆可） | `…_universal.dmg` |
+   | Linux | `….deb`、`….rpm` 或 `….AppImage` |
+
+   > 檔名開頭的中文產品名稱會被 GitHub 省略，所以看起來像 `_0.1.0_x64-setup.exe`，檔案本身沒有問題。
+
 2. 安裝並開啟。
 
 安裝檔目前**未經簽章**，第一次開啟會有系統警告：
