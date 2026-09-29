@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import type { Agency } from '../db/types';
 import { agenciesToCsv, csvToAgencies, emptyAgency, mergeAgencies } from '../db/csv';
-import { downloadBlob } from '../export/download';
+import { saveFile } from '../platform';
+import { alertDialog, confirmDialog } from '../dialogs';
 import { matchAgency } from '../search';
 
 interface Props {
@@ -54,7 +55,7 @@ export function ContactsPanel({ agencies, onSave, onSaveMany, onRemove }: Props)
         <button type="button" onClick={() => setEditing(emptyAgency())}>＋ 新增</button>
         <button type="button" onClick={() => fileRef.current?.click()}>匯入 CSV</button>
         <button type="button" disabled={!agencies.length}
-          onClick={() => downloadBlob(new Blob([agenciesToCsv(agencies)], { type: 'text/csv;charset=utf-8' }), '通訊錄.csv', 'text/csv')}>
+          onClick={() => saveFile(new Blob([agenciesToCsv(agencies)], { type: 'text/csv;charset=utf-8' }), '通訊錄.csv', 'text/csv').catch((e) => alertDialog(`匯出失敗：${e instanceof Error ? e.message : e}`))}>
           匯出 CSV
         </button>
         <input ref={fileRef} type="file" accept=".csv,text/csv" hidden
@@ -89,7 +90,7 @@ export function ContactsPanel({ agencies, onSave, onSaveMany, onRemove }: Props)
             </div>
             <div className="row-actions">
               <button type="button" onClick={() => setEditing(a)}>編輯</button>
-              <button type="button" onClick={() => confirm(`刪除「${a.name}」？`) && onRemove(a.id)}>刪除</button>
+              <button type="button" onClick={async () => (await confirmDialog(`刪除「${a.name}」？`)) && onRemove(a.id)}>刪除</button>
             </div>
           </li>
         ))}

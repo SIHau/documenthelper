@@ -4,6 +4,7 @@ import { DOC_TYPES, DOC_TYPE_LIST } from '../model/docTypes';
 import type { Agency } from '../db/types';
 import { AgencyPicker } from './AgencyPicker';
 import { OutlineEditor } from './OutlineEditor';
+import { confirmDialog } from '../dialogs';
 
 interface Props {
   doc: OfficialDocument;
@@ -67,7 +68,7 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
       </datalist>
       <div className="form-head">
         <h2>公文內容</h2>
-        <button type="button" onClick={() => confirm('確定清除目前草稿？') && onReset()}>
+        <button type="button" onClick={async () => (await confirmDialog('確定清除目前草稿？')) && onReset()}>
           清除草稿
         </button>
       </div>

@@ -13,7 +13,8 @@ import { loadDraft, saveDraft } from './storage';
 import { buildOdt, ODT_MIME } from './export/odt';
 import { buildDocx } from './export/docx';
 import { exportFileName } from './export/layout';
-import { downloadBlob } from './export/download';
+import { isDesktop, saveFile } from './platform';
+import { DialogHost, alertDialog, confirmDialog } from './dialogs';
 import { checkDocument } from './rules';
 import { insertAtCursor, isInsertable } from './phrases/insert';
 import type { TextField } from './phrases/insert';
@@ -82,7 +83,7 @@ export function App() {
   const errorCount = issues.filter((i) => i.severity !== 'info').length;
 
   const dirty = savedJson !== null ? JSON.stringify(doc) !== savedJson : !isBlank(doc);
-  const confirmDiscard = () => !dirty || confirm('目前稿件有尚未儲存至歷史的變更，確定要覆蓋嗎？');
+  const confirmDiscard = async () => !dirty || (await confirmDialog('目前稿件有尚未儲存至歷史的變更，確定要覆蓋嗎？'));
 
   const rememberField = (e: React.FocusEvent) => {
     if (isInsertable(e.target)) {
@@ -110,10 +111,14 @@ export function App() {
     setCurrentId(id);
     setSavedJson(JSON.stringify(doc));
   };
-  const newBlank = () => confirmDiscard() && load(emptyDocument(), null, false);
-  const openDraft = (r: DraftRecord) => confirmDiscard() && load(r.doc, r.id, true);
+  const newBlank = async () => {
+    if (await confirmDiscard()) load(emptyDocument(), null, false);
+  };
+  const openDraft = async (r: DraftRecord) => {
+    if (await confirmDiscard()) load(r.doc, r.id, true);
+  };
   const duplicateDraft = async (r: DraftRecord) => {
-    if (!confirmDiscard()) return;
+    if (!(await confirmDiscard())) return;
     const copy = instantiate(r.doc);
     const id = newId();
     await drafts.save({ id, title: draftTitle(copy), doc: copy, updatedAt: Date.now() });
@@ -128,8 +133,8 @@ export function App() {
   };
 
   // ---- 範本
-  const applyTemplate = (saved: OfficialDocument) => {
-    if (!confirmDiscard()) return;
+  const applyTemplate = async (saved: OfficialDocument) => {
+    if (!(await confirmDiscard())) return;
     const next = instantiate(saved, todayIso());
     load(next, null, false);
   };
@@ -139,18 +144,18 @@ export function App() {
   // ---- 備份
   const backupAll = async () => {
     const data = await exportAll();
-    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+    await saveFile(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
       `公文小幫手備份_${todayIso()}.json`, 'application/json');
   };
   const restoreAll = async (file: File) => {
     try {
       const backup = parseBackup(await file.text());
-      if (!confirm(`將還原 ${backup.drafts.length} 份稿件、${backup.templates.length} 個範本、${backup.contacts.length} 筆通訊錄。\n相同項目會被覆蓋，其餘資料保留。要繼續嗎？`)) return;
+      if (!(await confirmDialog(`將還原 ${backup.drafts.length} 份稿件、${backup.templates.length} 個範本、${backup.contacts.length} 筆通訊錄。\n相同項目會被覆蓋，其餘資料保留。要繼續嗎？`))) return;
       await restore(backup);
       await Promise.all([contacts.reload(), drafts.reload(), templates.reload()]);
-      alert('還原完成');
+      await alertDialog('還原完成');
     } catch (e) {
-      alert(`還原失敗：${e instanceof Error ? e.message : e}`);
+      await alertDialog(`還原失敗：${e instanceof Error ? e.message : e}`);
     }
   };
 
@@ -160,11 +165,13 @@ export function App() {
     setTimeout(() => window.print(), 50);
   };
   const run = (fn: () => Promise<void>) => () =>
-    fn().catch((e) => alert(`匯出失敗：${e instanceof Error ? e.message : e}`));
-  const exportOdt = run(async () =>
-    downloadBlob(await buildOdt(doc), exportFileName(doc, 'odt'), ODT_MIME));
-  const exportDocx = run(async () =>
-    downloadBlob(await buildDocx(doc), exportFileName(doc, 'docx'), DOCX_MIME));
+    fn().catch((e) => alertDialog(`匯出失敗：${e instanceof Error ? e.message : e}`));
+  const exportOdt = run(async () => {
+    await saveFile(await buildOdt(doc), exportFileName(doc, 'odt'), ODT_MIME);
+  });
+  const exportDocx = run(async () => {
+    await saveFile(await buildDocx(doc), exportFileName(doc, 'docx'), DOCX_MIME);
+  });
 
   const [pdfBusy, setPdfBusy] = useState(false);
   const exportPdf = async () => {
@@ -176,10 +183,10 @@ export function App() {
         import('./export/pdfFonts.browser'),
       ]);
       const { bytes, missing } = await buildPdf(doc, browserPdfFonts());
-      downloadBlob(bytes, exportFileName(doc, 'pdf'), PDF_MIME);
-      if (missing.length) alert(`PDF 字體不含以下字元，已略過：${missing.join(' ')}`);
+      const saved = await saveFile(bytes, exportFileName(doc, 'pdf'), PDF_MIME);
+      if (saved && missing.length) await alertDialog(`PDF 字體不含以下字元，已略過：${missing.join(' ')}`);
     } catch (e) {
-      alert(`PDF 產生失敗：${e instanceof Error ? e.message : e}`);
+      await alertDialog(`PDF 產生失敗：${e instanceof Error ? e.message : e}`);
     } finally {
       setPdfBusy(false);
     }
@@ -189,6 +196,7 @@ export function App() {
 
   return (
     <div className="layout">
+      <DialogHost />
       <section className="pane pane-form" onFocusCapture={rememberField}>
         <DocumentForm
           doc={doc}
@@ -216,7 +224,7 @@ export function App() {
             </button>
             <button type="button" onClick={exportOdt}>匯出 ODT</button>
             <button type="button" onClick={exportDocx}>匯出 DOCX</button>
-            <button type="button" onClick={printPreview}>列印</button>
+            {!isDesktop() && <button type="button" onClick={printPreview}>列印</button>}
           </div>
         </div>
         {dirty && currentId && tab !== 'history' && <p className="hint">編輯中的歷史稿件有未儲存的變更（到「稿件」頁籤按「儲存變更」）。</p>}

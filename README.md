@@ -42,6 +42,26 @@ npm run build   # 型別檢查並建置
 - **範本**：將目前稿件存為範本；內建 6 個範本（以「○」標示待填處，檢查頁籤會提醒）
 - **備份與還原**：一次匯出／還原稿件、範本與通訊錄（JSON）。資料只在本機，請定期備份
 
+### M6 桌面版（Tauri 2）
+
+同一份程式碼可包成 Windows、macOS、Linux 桌面程式（`src-tauri/`）。資料（草稿、歷史稿件、範本、通訊錄）存在程式自己的本機資料夾，不需要網路。
+
+- 桌面版的匯出（PDF、ODT、DOCX、備份、通訊錄 CSV）會跳出「另存新檔」對話框，可自選位置與檔名（`src/platform.ts`）
+- 桌面 WebView 對原生 alert/confirm/prompt 支援不一，所以全部改為程式內對話框（`src/dialogs.tsx`）；桌面版隱藏「列印」按鈕，請用「下載 PDF」
+- 權限只開放：另存新檔對話框、寫入使用者選定的檔案（`src-tauri/capabilities/default.json`）
+
+**本機開發與打包**（需安裝 [Rust](https://rustup.rs) 與 [Tauri 系統相依套件](https://tauri.app/start/prerequisites/)）：
+
+```bash
+npm install
+npm run desktop:dev     # 開發模式（自動開啟桌面視窗）
+npm run desktop:build   # 產生安裝檔，位於 src-tauri/target/release/bundle/
+```
+
+**不想安裝開發環境**：到 GitHub 的 Actions 頁面執行「桌面版打包」工作流程（`.github/workflows/desktop.yml`），完成後在該次執行的 Artifacts 下載 Windows（.msi／.exe）、macOS（.dmg）、Linux（.deb／.AppImage）安裝檔。推送 `v*` 標籤則會建立 Release 草稿。
+
+> 安裝檔目前**未簽章**：Windows 會出現 SmartScreen 警告（點「其他資訊 → 仍要執行」），macOS 需在「系統設定 → 隱私權與安全性」允許開啟。正式發布前如需消除警告，要另外申請程式碼簽章憑證。
+
 ## 路線圖
 
-M2 ODT/PDF 匯出 → M3 格式與用語檢查、更多文種 → M4 電子交換 DI 匯出（需官方 DTD 規格） → M5 通訊錄與歷史稿件 → M6 桌面版（Tauri）
+M2 ODT/PDF 匯出 → M3 格式與用語檢查、更多文種 → M4 電子交換 DI 匯出（需官方 DTD 規格） → M5 通訊錄與歷史稿件 → M6 桌面版（Tauri，已完成）
