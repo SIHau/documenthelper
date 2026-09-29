@@ -72,3 +72,9 @@ button:disabled { opacity: .4; cursor: default; }
 .picker { width: auto; }
 .backup { margin-top: 18px; }
 .backup summary { cursor: pointer; font-weight: 600; }
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: #fff; border-radius: 8px; padding: 18px 20px; width: min(420px, 90vw); box-shadow: 0 6px 24px rgba(0,0,0,.3); }
+.modal-msg { margin: 0 0 12px; white-space: pre-wrap; line-height: 1.5; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+button.primary { background: #1a4f8b; color: #fff; border-color: #1a4f8b; }

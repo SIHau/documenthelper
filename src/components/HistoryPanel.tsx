@@ -3,6 +3,7 @@ import type { DraftRecord } from '../db/types';
 import { DOC_TYPE_LIST } from '../model/docTypes';
 import type { DocType } from '../model/types';
 import { matchDraft } from '../search';
+import { confirmDialog } from '../dialogs';
 
 interface Props {
   drafts: DraftRecord[];
@@ -56,7 +57,7 @@ export function HistoryPanel(p: Props) {
             <div className="row-actions">
               <button type="button" onClick={() => p.onOpen(r)}>開啟</button>
               <button type="button" title="以此稿為底，建立新稿" onClick={() => p.onDuplicate(r)}>複製</button>
-              <button type="button" onClick={() => confirm(`刪除「${r.title}」？`) && p.onRemove(r)}>刪除</button>
+              <button type="button" onClick={async () => (await confirmDialog(`刪除「${r.title}」？`)) && p.onRemove(r)}>刪除</button>
             </div>
           </li>
         ))}

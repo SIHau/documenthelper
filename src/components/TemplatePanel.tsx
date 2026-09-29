@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { TemplateRecord } from '../db/types';
 import { BUILTIN_TEMPLATES } from '../data/builtinTemplates';
 import type { OfficialDocument } from '../model/types';
+import { confirmDialog, promptDialog } from '../dialogs';
 
 interface Props {
   templates: TemplateRecord[];
@@ -34,8 +35,8 @@ export function TemplatePanel({ templates, onApply, onSaveCurrent, onRename, onR
             </div>
             <div className="row-actions">
               <button type="button" onClick={() => onApply(t.doc)}>套用</button>
-              <button type="button" onClick={() => { const n = prompt('新的範本名稱', t.name); if (n?.trim()) onRename(t, n.trim()); }}>改名</button>
-              <button type="button" onClick={() => confirm(`刪除範本「${t.name}」？`) && onRemove(t)}>刪除</button>
+              <button type="button" onClick={async () => { const n = await promptDialog('新的範本名稱', t.name); if (n?.trim()) onRename(t, n.trim()); }}>改名</button>
+              <button type="button" onClick={async () => (await confirmDialog(`刪除範本「${t.name}」？`)) && onRemove(t)}>刪除</button>
             </div>
           </li>
         ))}
