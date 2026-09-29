@@ -65,7 +65,7 @@ jobs:
           releaseDraft: false
           releaseBody: |
             桌面版安裝檔（未簽章）。
-            - Windows：下載 `.msi` 或 `-setup.exe`；出現 SmartScreen 警告時，點「其他資訊」→「仍要執行」。
+            - Windows：下載 `-setup.exe`；出現 SmartScreen 警告時，點「其他資訊」→「仍要執行」。
             - macOS：下載 `.dmg`；首次開啟請到「系統設定 → 隱私權與安全性」允許。
             - Linux：下載 `.deb` 或 `.AppImage`。
           args: ${{ matrix.args }}
