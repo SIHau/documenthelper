@@ -22,7 +22,8 @@ npm run build   # 型別檢查並建置
 ### M2 匯出
 
 - **ODT**（ODF 1.2，自行產生，不依賴外部服務）與 **DOCX**，兩者共用同一份中介版面（`src/export/layout.ts`），內容一致
-- **PDF**：目前透過瀏覽器「列印／另存 PDF」，已設定 A4 版面
+- **PDF（一鍵下載）**：以 pdf-lib 在瀏覽器內直接產生向量 PDF，文字可選取、搜尋。本文為思源宋體（Noto Serif TC），簽名為 Yuji Boku，字體已嵌入檔案，任何電腦開啟都一樣。字體來自 Fontsource（`src/export/pdf.ts`、`pdfFonts*.ts`），點擊時才載入，不影響首頁載入速度
+- 也保留瀏覽器「列印」作為備用
 - 簽名字體 Yuji Boku 在檔案中以字體名稱引用，開啟檔案的電腦需安裝該字體，否則會改用預設字體
 
 ### M3 文種、檢查與用語庫
