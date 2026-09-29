@@ -31,7 +31,10 @@ export function Preview({ doc }: { doc: OfficialDocument }) {
         <h1>{doc.sender.name || '（發文機關）'}　{doc.type}</h1>
         <div className="pv-meta">
           {doc.senderAddress && <div>地址：{doc.senderAddress}</div>}
-          {doc.contact && <div>聯絡方式：{doc.contact}</div>}
+          {doc.contact.person && <div>承辦人：{doc.contact.person}</div>}
+          {doc.contact.phone && <div>連絡電話：{doc.contact.phone}</div>}
+          {doc.contact.email && <div>電子信箱：{doc.contact.email}</div>}
+          {doc.contact.fax && <div>傳真：{doc.contact.fax}</div>}
         </div>
       </header>
 
@@ -64,6 +67,13 @@ export function Preview({ doc }: { doc: OfficialDocument }) {
         {doc.primaryRecipients && <div>正本：{doc.primaryRecipients}</div>}
         {doc.ccRecipients && <div>副本：{doc.ccRecipients}</div>}
       </footer>
+
+      {doc.signature.enabled && (doc.signature.title || doc.signature.name) && (
+        <div className={`pv-sign pv-sign-${doc.signature.font}`}>
+          <span className="pv-sign-title">{doc.signature.title}</span>
+          <span className="pv-sign-name">{doc.signature.name}</span>
+        </div>
+      )}
     </article>
   );
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Direction, DocType, OfficialDocument, Secrecy, Urgency } from '../model/types';
+import type { Direction, DocType, OfficialDocument, Secrecy, SignatureFont, Urgency } from '../model/types';
 import { OutlineEditor } from './OutlineEditor';
 
 interface Props {
@@ -20,6 +20,13 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 export function DocumentForm({ doc, onChange, onReset }: Props) {
   const set = <K extends keyof OfficialDocument>(key: K, value: OfficialDocument[K]) =>
     onChange({ ...doc, [key]: value });
+
+  const setContact = (key: keyof OfficialDocument['contact'], value: string) =>
+    onChange({ ...doc, contact: { ...doc.contact, [key]: value } });
+  const setSignature = <K extends keyof OfficialDocument['signature']>(
+    key: K,
+    value: OfficialDocument['signature'][K],
+  ) => onChange({ ...doc, signature: { ...doc.signature, [key]: value } });
 
   const measuresLabel = '辦法';
 
@@ -82,9 +89,21 @@ export function DocumentForm({ doc, onChange, onReset }: Props) {
           <Field label="地址">
             <input value={doc.senderAddress} onChange={(e) => set('senderAddress', e.target.value)} />
           </Field>
-          <Field label="聯絡方式">
-            <input value={doc.contact} placeholder="承辦人、電話、電子信箱"
-              onChange={(e) => set('contact', e.target.value)} />
+          <Field label="承辦人">
+            <input value={doc.contact.person}
+              onChange={(e) => setContact('person', e.target.value)} />
+          </Field>
+          <Field label="連絡電話">
+            <input type="tel" value={doc.contact.phone}
+              onChange={(e) => setContact('phone', e.target.value)} />
+          </Field>
+          <Field label="電子信箱">
+            <input type="email" value={doc.contact.email}
+              onChange={(e) => setContact('email', e.target.value)} />
+          </Field>
+          <Field label="傳真">
+            <input type="tel" value={doc.contact.fax}
+              onChange={(e) => setContact('fax', e.target.value)} />
           </Field>
           <Field label="受文者">
             <input value={doc.recipient.name}
@@ -120,6 +139,32 @@ export function DocumentForm({ doc, onChange, onReset }: Props) {
         <Field label="副本">
           <input value={doc.ccRecipients} onChange={(e) => set('ccRecipients', e.target.value)} />
         </Field>
+      </fieldset>
+      <fieldset>
+        <legend>簽名</legend>
+        <label className="field-inline">
+          <input type="checkbox" checked={doc.signature.enabled}
+            onChange={(e) => setSignature('enabled', e.target.checked)} />
+          於文件下方顯示簽名
+        </label>
+        <div className="grid">
+          <Field label="頭銜">
+            <input value={doc.signature.title} placeholder="例：學生議員"
+              onChange={(e) => setSignature('title', e.target.value)} />
+          </Field>
+          <Field label="姓名">
+            <input value={doc.signature.name}
+              onChange={(e) => setSignature('name', e.target.value)} />
+          </Field>
+          <Field label="字體">
+            <select value={doc.signature.font}
+              onChange={(e) => setSignature('font', e.target.value as SignatureFont)}>
+              <option value="yuji-boku">Yuji Boku（預設）</option>
+              <option value="kai">標楷體</option>
+              <option value="default">系統預設</option>
+            </select>
+          </Field>
+        </div>
       </fieldset>
     </form>
   );

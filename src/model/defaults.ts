@@ -17,7 +17,7 @@ export function emptyDocument(type: OfficialDocument['type'] = '函'): OfficialD
     direction: '平行',
     sender: { name: '' },
     senderAddress: '',
-    contact: '',
+    contact: { person: '', phone: '', email: '', fax: '' },
     recipient: { name: '' },
     date: todayIso(),
     docNumber: '',
@@ -29,5 +29,6 @@ export function emptyDocument(type: OfficialDocument['type'] = '函'): OfficialD
     measures: [],
     primaryRecipients: '',
     ccRecipients: '',
+    signature: { enabled: true, title: '', name: '', font: 'yuji-boku' },
   };
 }
