@@ -22,6 +22,7 @@ import { exportAll, parseBackup, restore } from './db/backup';
 import type { Agency, DraftRecord, TemplateRecord } from './db/types';
 import type { OfficialDocument } from './model/types';
 
+const PDF_MIME = 'application/pdf';
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const CURRENT_KEY = 'documenthelper:currentId';
 
@@ -165,6 +166,25 @@ export function App() {
   const exportDocx = run(async () =>
     downloadBlob(await buildDocx(doc), exportFileName(doc, 'docx'), DOCX_MIME));
 
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const exportPdf = async () => {
+    setPdfBusy(true);
+    try {
+      // pdf-lib 與字體邏輯較大，點擊時才載入
+      const [{ buildPdf }, { browserPdfFonts }] = await Promise.all([
+        import('./export/pdf'),
+        import('./export/pdfFonts.browser'),
+      ]);
+      const { bytes, missing } = await buildPdf(doc, browserPdfFonts());
+      downloadBlob(bytes, exportFileName(doc, 'pdf'), PDF_MIME);
+      if (missing.length) alert(`PDF 字體不含以下字元，已略過：${missing.join(' ')}`);
+    } catch (e) {
+      alert(`PDF 產生失敗：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const storageError = contacts.error || drafts.error || templates.error;
 
   return (
@@ -191,9 +211,12 @@ export function App() {
             ))}
           </div>
           <div className="toolbar-actions">
+            <button type="button" onClick={() => void exportPdf()} disabled={pdfBusy}>
+              {pdfBusy ? '產生中…' : '下載 PDF'}
+            </button>
             <button type="button" onClick={exportOdt}>匯出 ODT</button>
             <button type="button" onClick={exportDocx}>匯出 DOCX</button>
-            <button type="button" onClick={printPreview}>列印／另存 PDF</button>
+            <button type="button" onClick={printPreview}>列印</button>
           </div>
         </div>
         {dirty && currentId && tab !== 'history' && <p className="hint">編輯中的歷史稿件有未儲存的變更（到「稿件」頁籤按「儲存變更」）。</p>}
