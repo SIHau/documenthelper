@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react';
 import type { Direction, DocType, OfficialDocument, Secrecy, SignatureFont, Urgency } from '../model/types';
 import { DOC_TYPES, DOC_TYPE_LIST } from '../model/docTypes';
+import type { Agency } from '../db/types';
+import { AgencyPicker } from './AgencyPicker';
 import { OutlineEditor } from './OutlineEditor';
 
 interface Props {
   doc: OfficialDocument;
+  agencies: Agency[];
   onChange: (doc: OfficialDocument) => void;
   onReset: () => void;
 }
@@ -29,7 +32,22 @@ const MEETING_FIELDS: Array<[keyof OfficialDocument['meeting'], string, boolean]
   ['remarks', '備註', true],
 ];
 
-export function DocumentForm({ doc, onChange, onReset }: Props) {
+export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
+  const findAgency = (name: string) => agencies.find((a) => a.name === name.trim());
+  /** 發文機關：名稱完全符合通訊錄時，帶入代碼、地址與聯絡資料（只補空白欄位） */
+  const changeSender = (name: string) => {
+    const a = findAgency(name);
+    onChange({
+      ...doc,
+      sender: { ...doc.sender, name, ...(a ? { code: a.code } : {}) },
+      ...(a && !doc.senderAddress ? { senderAddress: a.address } : {}),
+      ...(a ? { contact: { ...doc.contact, phone: doc.contact.phone || a.phone, fax: doc.contact.fax || a.fax, email: doc.contact.email || a.email } } : {}),
+    });
+  };
+  const changeRecipient = (name: string) => {
+    const a = findAgency(name);
+    onChange({ ...doc, recipient: { ...doc.recipient, name, ...(a ? { code: a.code } : {}) } });
+  };
   const cfg = DOC_TYPES[doc.type];
   const set = <K extends keyof OfficialDocument>(key: K, value: OfficialDocument[K]) =>
     onChange({ ...doc, [key]: value });
@@ -44,6 +62,9 @@ export function DocumentForm({ doc, onChange, onReset }: Props) {
 
   return (
     <form className="form" onSubmit={(e) => e.preventDefault()}>
+      <datalist id="agency-list">
+        {agencies.map((a) => <option key={a.id} value={a.name} />)}
+      </datalist>
       <div className="form-head">
         <h2>公文內容</h2>
         <button type="button" onClick={() => confirm('確定清除目前草稿？') && onReset()}>
@@ -96,8 +117,8 @@ export function DocumentForm({ doc, onChange, onReset }: Props) {
         <legend>機關與{cfg.recipient ? cfg.recipientLabel : '聯絡'}</legend>
         <div className="grid">
           <Field label="發文機關">
-            <input value={doc.sender.name}
-              onChange={(e) => set('sender', { ...doc.sender, name: e.target.value })} />
+            <input value={doc.sender.name} list="agency-list"
+              onChange={(e) => changeSender(e.target.value)} />
           </Field>
           <Field label="機關代碼（選填）">
             <input value={doc.sender.code ?? ''}
@@ -124,8 +145,8 @@ export function DocumentForm({ doc, onChange, onReset }: Props) {
           </Field>
           {cfg.recipient && (
             <Field label={cfg.recipientLabel}>
-              <input value={doc.recipient.name}
-                onChange={(e) => set('recipient', { ...doc.recipient, name: e.target.value })} />
+              <input value={doc.recipient.name} list="agency-list"
+                onChange={(e) => changeRecipient(e.target.value)} />
             </Field>
           )}
         </div>
@@ -176,10 +197,16 @@ export function DocumentForm({ doc, onChange, onReset }: Props) {
         {cfg.routing && (
           <>
             <Field label="正本">
-              <input value={doc.primaryRecipients} onChange={(e) => set('primaryRecipients', e.target.value)} />
+              <span className="with-picker">
+                <input value={doc.primaryRecipients} onChange={(e) => set('primaryRecipients', e.target.value)} />
+                <AgencyPicker agencies={agencies} value={doc.primaryRecipients} onChange={(v) => set('primaryRecipients', v)} />
+              </span>
             </Field>
             <Field label="副本">
-              <input value={doc.ccRecipients} onChange={(e) => set('ccRecipients', e.target.value)} />
+              <span className="with-picker">
+                <input value={doc.ccRecipients} onChange={(e) => set('ccRecipients', e.target.value)} />
+                <AgencyPicker agencies={agencies} value={doc.ccRecipients} onChange={(v) => set('ccRecipients', v)} />
+              </span>
             </Field>
           </>
         )}

@@ -105,6 +105,16 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     add('att-unmentioned', 'info', '附件', '附件欄已填寫，但主旨或內文未提及附件。');
   }
 
+  // 尚未填寫的「○」占位（範本產生）
+  const placeholderWhere = [
+    ...sections.filter((s) => s.text.includes('○')).map((s) => s.where),
+    ...(doc.attachments.includes('○') ? ['附件'] : []),
+    ...(cfg.meeting && Object.values(doc.meeting).some((v) => v.includes('○')) ? ['開會資訊'] : []),
+  ];
+  for (const where of new Set(placeholderWhere)) {
+    add(`placeholder:${where}`, 'warn', where, '尚有未填寫的「○」，請補上實際內容。');
+  }
+
   // 內文逐段檢查
   for (const s of sections) {
     if (/(?:19|20)\d{2}\s*年/.test(s.text)) {
