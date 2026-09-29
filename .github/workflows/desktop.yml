@@ -1,7 +1,8 @@
 name: 桌面版打包
 
 # 手動執行（Actions 頁面 → 桌面版打包 → Run workflow），或推送 v* 標籤時執行。
-# 產出的安裝檔會放在該次執行的 Artifacts；推送標籤時另建 Release 草稿。
+# 推送標籤時會自動建立 Release 並附上各系統安裝檔（Releases 頁面可直接下載）；
+# 手動執行時，安裝檔放在該次執行的 Artifacts。
 on:
   workflow_dispatch:
   push:
@@ -55,7 +56,12 @@ jobs:
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('公文小幫手 {0}', github.ref_name) || '' }}
-          releaseDraft: true
+          releaseDraft: false
+          releaseBody: |
+            桌面版安裝檔（未簽章）。
+            - Windows：下載 `.msi` 或 `-setup.exe`；出現 SmartScreen 警告時，點「其他資訊」→「仍要執行」。
+            - macOS：下載 `.dmg`；首次開啟請到「系統設定 → 隱私權與安全性」允許。
+            - Linux：下載 `.deb` 或 `.AppImage`。
           args: ${{ matrix.args }}
 
       - name: 上傳安裝檔
