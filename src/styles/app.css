@@ -25,6 +25,14 @@ button:disabled { opacity: .4; cursor: default; }
 .pv-block { margin-top: 12px; }
 .pv-item { margin: 0; text-indent: 0; white-space: pre-wrap; }
 .pv-foot { margin-top: 24px; }
+.pv-sign { margin-top: 48px; padding-left: 1em; display: flex; align-items: baseline; gap: .6em; color: #1a4f8b; }
+.pv-sign-title { font-size: 22pt; }
+.pv-sign-name { font-size: 44pt; line-height: 1.2; }
+.pv-sign-yuji-boku { font-family: "Yuji Boku", "標楷體", serif; }
+.pv-sign-kai { font-family: "標楷體", "DFKai-SB", "BiauKai", serif; }
+.pv-sign-default { font-family: system-ui, "Noto Sans TC", sans-serif; }
+.field-inline { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 8px; }
+.field-inline input { width: auto; }
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; height: auto; } .page { width: 100%; padding: 16px; } }
 @media print {
   body { background: #fff; }

@@ -20,13 +20,31 @@ export interface Party {
   code?: string;
 }
 
+/** 聯絡方式：承辦人、連絡電話、電子信箱、傳真 */
+export interface ContactInfo {
+  person: string;
+  phone: string;
+  email: string;
+  fax: string;
+}
+
+export type SignatureFont = 'yuji-boku' | 'kai' | 'default';
+
+/** 文末簽名（頭銜、姓名） */
+export interface Signature {
+  enabled: boolean;
+  title: string;
+  name: string;
+  font: SignatureFont;
+}
+
 export interface OfficialDocument {
   type: DocType;
   direction: Direction;
   /** 發文機關 */
   sender: Party;
   senderAddress: string;
-  contact: string;
+  contact: ContactInfo;
   /** 受文者 */
   recipient: Party;
   /** 發文日期（西元 YYYY-MM-DD，顯示時轉民國） */
@@ -45,4 +63,5 @@ export interface OfficialDocument {
   primaryRecipients: string;
   /** 副本受文者 */
   ccRecipients: string;
+  signature: Signature;
 }
