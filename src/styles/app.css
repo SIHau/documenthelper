@@ -24,6 +24,7 @@ button:disabled { opacity: .4; cursor: default; }
 .pv-row { margin: 2px 0; }
 .pv-block { margin-top: 12px; }
 .pv-item { margin: 0; text-indent: 0; white-space: pre-wrap; }
+.toolbar-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .pv-foot { margin-top: 24px; }
 .pv-sign { margin-top: 48px; padding-left: 1em; display: flex; align-items: baseline; gap: .6em; color: #1a4f8b; }
 .pv-sign-title { font-size: 22pt; }
@@ -34,10 +35,11 @@ button:disabled { opacity: .4; cursor: default; }
 .field-inline { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 8px; }
 .field-inline input { width: auto; }
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; height: auto; } .page { width: 100%; padding: 16px; } }
+@page { size: A4; margin: 0; }
 @media print {
   body { background: #fff; }
   .pane-form, .toolbar { display: none; }
   .layout { display: block; height: auto; }
   .pane { padding: 0; overflow: visible; }
-  .page { box-shadow: none; margin: 0; width: auto; }
+  .page { box-shadow: none; margin: 0; width: auto; min-height: auto; }
 }
