@@ -19,8 +19,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Windows 只打包 NSIS 安裝程式（.exe）：產品名稱含中文時，WiX（.msi）會在 light.exe 失敗
           - os: windows-latest
-            args: ''
+            args: '--bundles nsis'
           - os: macos-latest
             args: '--target universal-apple-darwin'
           - os: ubuntu-22.04
