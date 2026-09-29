@@ -30,5 +30,6 @@ export function emptyDocument(type: OfficialDocument['type'] = '函'): OfficialD
     primaryRecipients: '',
     ccRecipients: '',
     signature: { enabled: true, title: '', name: '', font: 'yuji-boku' },
+    meeting: { reason: '', time: '', place: '', chair: '', contact: '', attendees: '', observers: '', remarks: '' },
   };
 }

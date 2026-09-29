@@ -1,5 +1,18 @@
-/** 公文文種（M1 先支援函與書函，其餘文種於 M3 加入） */
-export type DocType = '函' | '書函';
+/** 公文文種 */
+export type DocType = '函' | '書函' | '公告' | '開會通知單' | '簽';
+
+/** 開會通知單專用欄位 */
+export interface Meeting {
+  reason: string;
+  time: string;
+  place: string;
+  chair: string;
+  /** 聯絡人及電話 */
+  contact: string;
+  attendees: string;
+  observers: string;
+  remarks: string;
+}
 
 /** 行文方向，影響期望語建議（M3） */
 export type Direction = '上行' | '平行' | '下行';
@@ -64,4 +77,5 @@ export interface OfficialDocument {
   /** 副本受文者 */
   ccRecipients: string;
   signature: Signature;
+  meeting: Meeting;
 }
