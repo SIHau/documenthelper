@@ -1,6 +1,7 @@
 import type { OfficialDocument } from '../model/types';
 import { numberItems } from '../model/numbering';
 import { toMinguoText } from '../model/date';
+import { DOC_TYPES } from '../model/docTypes';
 
 /** 匯出用的中介版面：ODT、DOCX 等格式共用，確保各格式內容一致 */
 export interface Run {
@@ -40,9 +41,13 @@ export function labelWidthEm(label: string): number {
 }
 
 export function buildBlocks(doc: OfficialDocument): Block[] {
+  const cfg = DOC_TYPES[doc.type];
   const blocks: Block[] = [];
   const line = (text: string, extra: Partial<Block> = {}, run: Partial<Run> = {}) =>
     blocks.push({ runs: [{ text, ...run }], ...extra });
+  const row = (label: string, value: string, spaceBefore = 0) => {
+    if (value) line(`${label}：${value}`, { spaceBefore });
+  };
 
   line(`${doc.sender.name || '（發文機關）'}　${doc.type}`, { align: 'center' }, { bold: true, size: 22 });
 
@@ -53,41 +58,85 @@ export function buildBlocks(doc: OfficialDocument): Block[] {
     ['電子信箱', doc.contact.email],
     ['傳真', doc.contact.fax],
   ];
-  contact.forEach(([k, v], i) => {
-    if (v) line(`${k}：${v}`, { align: 'right', spaceBefore: i === 0 ? 6 : 0 }, { size: 12 });
-  });
+  let first = true;
+  for (const [k, v] of contact) {
+    if (!v) continue;
+    line(`${k}：${v}`, { align: 'right', spaceBefore: first ? 6 : 0 }, { size: 12 });
+    first = false;
+  }
 
-  const rows: Array<[string, string]> = [
-    ['受文者', doc.recipient.name || '（受文者）'],
-    ['發文日期', toMinguoText(doc.date)],
-    ['發文字號', doc.docNumber],
-    ['速別', doc.urgency],
-    ['密等及解密條件或保密期限', doc.secrecy],
-    ['附件', doc.attachments],
-  ];
-  rows.forEach(([k, v], i) => {
-    if (v) line(`${k}：${v}`, { spaceBefore: i === 0 ? 12 : 0 });
-  });
+  const head: Array<[string, string]> = [];
+  if (cfg.recipient && !cfg.recipientAtEnd) head.push([cfg.recipientLabel, doc.recipient.name || '（受文者）']);
+  head.push([cfg.dateLabel, toMinguoText(doc.date)]);
+  if (cfg.docNumber) head.push(['發文字號', doc.docNumber]);
+  if (cfg.urgencySecrecy) {
+    head.push(['速別', doc.urgency]);
+    head.push(['密等及解密條件或保密期限', doc.secrecy]);
+  }
+  head.push(['附件', doc.attachments]);
+  let firstHead = true;
+  for (const [k, v] of head) {
+    if (!v) continue;
+    row(k, v, firstHead ? 12 : 0);
+    firstHead = false;
+  }
 
-  blocks.push({
-    runs: [{ text: '主旨：', bold: true }, { text: doc.subject || '（請填寫主旨）' }],
-    spaceBefore: 12,
-  });
+  if (cfg.meeting) {
+    const m = doc.meeting;
+    const rows: Array<[string, string]> = [
+      ['開會事由', m.reason],
+      ['開會時間', m.time],
+      ['開會地點', m.place],
+      ['主持人', m.chair],
+      ['聯絡人及電話', m.contact],
+      ['出席者', m.attendees],
+      ['列席者', m.observers],
+      ['備註', m.remarks],
+    ];
+    let firstMeeting = true;
+    for (const [k, v] of rows) {
+      if (!v) continue;
+      row(k, v, firstMeeting ? 12 : 0);
+      firstMeeting = false;
+    }
+  }
 
-  const outline = (title: string, items: OfficialDocument['explanation']) => {
+  if (cfg.subject) {
+    blocks.push({
+      runs: [{ text: '主旨：', bold: true }, { text: doc.subject || '（請填寫主旨）' }],
+      spaceBefore: 12,
+    });
+  }
+
+  const outline = (title: string | null, items: OfficialDocument['explanation']) => {
+    if (!title) return;
     const numbered = numberItems(items).filter((it) => it.text.trim());
     if (!numbered.length) return;
-    line(title, { spaceBefore: 12 }, { bold: true });
+    line(title + '：', { spaceBefore: 12 }, { bold: true });
     for (const it of numbered) {
       const w = labelWidthEm(it.label);
       blocks.push({ runs: [{ text: it.label + it.text }], indentEm: it.level * 2 + w, hangingEm: w });
     }
   };
-  outline('說明：', doc.explanation);
-  outline('辦法：', doc.measures);
+  outline(cfg.explanationLabel, doc.explanation);
+  outline(cfg.measuresLabel, doc.measures);
 
-  if (doc.primaryRecipients) line(`正本：${doc.primaryRecipients}`, { spaceBefore: 24 });
-  if (doc.ccRecipients) line(`副本：${doc.ccRecipients}`);
+  if (cfg.recipient && cfg.recipientAtEnd && doc.recipient.name) {
+    line(`${cfg.recipientLabel}　${doc.recipient.name}`, { spaceBefore: 12 });
+  }
+
+  if (cfg.routing) {
+    const routes: Array<[string, string]> = [
+      ['正本', doc.primaryRecipients],
+      ['副本', doc.ccRecipients],
+    ];
+    let firstRoute = true;
+    for (const [k, v] of routes) {
+      if (!v) continue;
+      row(k, v, firstRoute ? 24 : 0);
+      firstRoute = false;
+    }
+  }
 
   const { signature: s } = doc;
   if (s.enabled && (s.title || s.name)) {

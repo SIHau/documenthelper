@@ -11,7 +11,8 @@ function migrate(saved: Record<string, unknown>): OfficialDocument {
       ? { ...base.contact, person: saved.contact }
       : { ...base.contact, ...(saved.contact as object) };
   const signature = { ...base.signature, ...(saved.signature as object) };
-  return { ...base, ...saved, contact, signature } as OfficialDocument;
+  const meeting = { ...base.meeting, ...(saved.meeting as object) };
+  return { ...base, ...saved, contact, signature, meeting } as OfficialDocument;
 }
 
 export function loadDraft(): OfficialDocument {

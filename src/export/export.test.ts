@@ -31,6 +31,36 @@ describe('buildBlocks', () => {
   });
 });
 
+describe('buildBlocks per doc type', () => {
+  const texts = (d: OfficialDocument) => buildBlocks(d).map((b) => b.runs.map((r) => r.text).join(''));
+
+  it('公告 has 依據/公告事項 and no 受文者', () => {
+    const d = { ...sample(), type: '公告' as const, measures: [newItem(0, '公告內容。')] };
+    const t = texts(d);
+    expect(t).toContain('依據：');
+    expect(t).toContain('公告事項：');
+    expect(t.some((x) => x.startsWith('受文者'))).toBe(false);
+    expect(t[0]).toContain('公告');
+  });
+
+  it('簽 puts 敬陳 at the end, before the signature', () => {
+    const d = { ...sample(), type: '簽' as const, recipient: { name: '校長' }, measures: [newItem(0, '擬照辦。')] };
+    const t = texts(d);
+    expect(t).toContain('擬辦：');
+    expect(t.some((x) => x.startsWith('受文者'))).toBe(false);
+    expect(t.indexOf('敬陳　校長')).toBeGreaterThan(t.indexOf('擬辦：'));
+    expect(t.indexOf('敬陳　校長')).toBeLessThan(t.length - 1);
+  });
+
+  it('開會通知單 lists meeting rows and skips 主旨', () => {
+    const d = { ...sample(), type: '開會通知單' as const };
+    d.meeting = { ...d.meeting, reason: '討論選舉', time: '114年4月1日', place: '會議室' };
+    const t = texts(d);
+    expect(t).toEqual(expect.arrayContaining(['開會事由：討論選舉', '開會時間：114年4月1日', '開會地點：會議室']));
+    expect(t.some((x) => x.startsWith('主旨'))).toBe(false);
+  });
+});
+
 describe('buildOdt', () => {
   it('writes mimetype first and well-formed XML', async () => {
     const zip = await JSZip.loadAsync(await buildOdt(sample()));
