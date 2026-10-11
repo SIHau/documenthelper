@@ -37,7 +37,7 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     issues.push({ id, severity, where, message });
 
   const sections: Section[] = [
-    ...(cfg.subject ? [{ where: '主旨', text: doc.subject }] : []),
+    ...(cfg.subject ? [{ where: cfg.subjectLabel, text: doc.subject }] : []),
     ...outlineSections(cfg.explanationLabel, doc.explanation),
     ...outlineSections(cfg.measuresLabel, doc.measures),
   ];
@@ -49,7 +49,7 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     add('recipient', 'error', cfg.recipientLabel, `尚未填寫${cfg.recipientLabel}。`);
   }
   if (!toMinguoText(doc.date)) add('date', 'error', cfg.dateLabel, `${cfg.dateLabel}格式不正確。`);
-  if (cfg.subject && !hasText(doc.subject)) add('subject-empty', 'error', '主旨', '尚未填寫主旨。');
+  if (cfg.subject && !hasText(doc.subject)) add('subject-empty', 'error', cfg.subjectLabel, `尚未填寫${cfg.subjectLabel}。`);
   if (cfg.docNumber && !hasText(doc.docNumber)) add('docnum', 'info', '發文字號', '尚未填寫發文字號。');
   if (cfg.meeting) {
     if (!hasText(doc.meeting.reason)) add('m-reason', 'error', '開會事由', '尚未填寫開會事由。');
@@ -62,6 +62,21 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
   if (doc.type === '簽' && !doc.measures.some((i) => hasText(i.text))) {
     add('plan', 'warn', '擬辦', '簽通常需寫明擬辦事項。');
   }
+  if (cfg.amendment) {
+    const { lawName, rows } = doc.amendment;
+    const filled = rows.filter((r) => hasText(r.amended) || hasText(r.current) || hasText(r.reason));
+    if (!hasText(lawName)) add('law-name', 'error', '條文對照表', '尚未填寫法規名稱。');
+    if (!filled.length) add('law-rows', 'error', '條文對照表', '條文對照表沒有任何條文。');
+    filled.forEach((r, i) => {
+      if (!hasText(r.amended) && !hasText(r.current)) {
+        add(`law-text:${r.id}`, 'error', '條文對照表', `第 ${i + 1} 列的修正條文與現行條文都是空白。`);
+      }
+      if (!hasText(r.reason)) add(`law-reason:${r.id}`, 'warn', '條文對照表', `第 ${i + 1} 列尚未填寫說明。`);
+      if (hasText(r.amended) && r.amended.trim() === r.current.trim()) {
+        add(`law-same:${r.id}`, 'warn', '條文對照表', `第 ${i + 1} 列的修正條文與現行條文相同。`);
+      }
+    });
+  }
   if (doc.signature.enabled && hasText(doc.signature.title) && !hasText(doc.signature.name)) {
     add('sign-name', 'warn', '簽名', '已填頭銜但未填姓名。');
   }
@@ -73,9 +88,9 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
   if (cfg.subject && hasText(doc.subject)) {
     const subject = doc.subject.trim();
     if (subject.length > SUBJECT_MAX) {
-      add('subject-long', 'info', '主旨', `主旨共 ${subject.length} 字，建議力求簡明（約 ${SUBJECT_MAX} 字內）。`);
+      add('subject-long', 'info', cfg.subjectLabel, `${cfg.subjectLabel}共 ${subject.length} 字，建議力求簡明（約 ${SUBJECT_MAX} 字內）。`);
     }
-    if (!/[。]$/.test(subject)) add('subject-period', 'info', '主旨', '主旨結尾建議加上句號。');
+    if (!/[。]$/.test(subject)) add('subject-period', 'info', cfg.subjectLabel, `${cfg.subjectLabel}結尾建議加上句號。`);
     if (cfg.expectation && !/(請|敬請|謹請|函請)[^，。；：]*。?$/.test(subject)) {
       add('subject-expect', 'warn', '主旨', '主旨結尾缺少期望語（如：請查照、請鑒核）。');
     }
@@ -110,6 +125,10 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     ...sections.filter((s) => s.text.includes('○')).map((s) => s.where),
     ...(doc.attachments.includes('○') ? ['附件'] : []),
     ...(cfg.meeting && Object.values(doc.meeting).some((v) => v.includes('○')) ? ['開會資訊'] : []),
+    ...(cfg.amendment &&
+    [doc.amendment.lawName, ...doc.amendment.rows.flatMap((r) => [r.amended, r.current, r.reason])].some((v) => v.includes('○'))
+      ? ['條文對照表']
+      : []),
   ];
   for (const where of new Set(placeholderWhere)) {
     add(`placeholder:${where}`, 'warn', where, '尚有未填寫的「○」，請補上實際內容。');

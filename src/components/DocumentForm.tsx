@@ -4,6 +4,7 @@ import { DOC_TYPES, DOC_TYPE_LIST } from '../model/docTypes';
 import type { Agency } from '../db/types';
 import { AgencyPicker } from './AgencyPicker';
 import { OutlineEditor } from './OutlineEditor';
+import { AmendmentEditor } from './AmendmentEditor';
 import { confirmDialog } from '../dialogs';
 
 interface Props {
@@ -170,8 +171,9 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
 
       {cfg.subject && (
         <fieldset>
-          <legend>主旨</legend>
-          <textarea rows={3} value={doc.subject} placeholder="簡明扼要，一段完成，不分項"
+          <legend>{cfg.subjectLabel}</legend>
+          <textarea rows={3} value={doc.subject}
+            placeholder={cfg.amendment ? '例：擬修正學生會組織章程部分條文，提請審議案。' : '簡明扼要，一段完成，不分項'}
             onChange={(e) => set('subject', e.target.value.replace(/\n/g, ''))} />
         </fieldset>
       )}
@@ -187,6 +189,18 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
         <fieldset>
           <legend>{cfg.measuresLabel}（可留空）</legend>
           <OutlineEditor items={doc.measures} onChange={(v) => set('measures', v)} />
+        </fieldset>
+      )}
+
+      {cfg.amendment && (
+        <fieldset>
+          <legend>條文對照表</legend>
+          <Field label="法規名稱">
+            <input value={doc.amendment.lawName} placeholder="例：學生會組織章程"
+              onChange={(e) => set('amendment', { ...doc.amendment, lawName: e.target.value })} />
+          </Field>
+          <AmendmentEditor rows={doc.amendment.rows}
+            onChange={(rows) => set('amendment', { ...doc.amendment, rows })} />
         </fieldset>
       )}
 

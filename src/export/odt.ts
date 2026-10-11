@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import type { OfficialDocument } from '../model/types';
 import { BODY_FONT, BODY_SIZE, SIGNATURE_FONTS, buildBlocks } from './layout';
-import type { Block, Run } from './layout';
+import type { Block, Run, Table } from './layout';
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -16,6 +16,7 @@ function textNodes(text: string): string {
 const NS = `xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
  xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"
  xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+ xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
  xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"
  xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0"
  xmlns:dc="http://purl.org/dc/elements/1.1/"
@@ -31,6 +32,9 @@ function fontDecls(): string {
 }
 
 const ALIGN = { left: 'start', center: 'center', right: 'end' } as const;
+
+/** A4 寬 21cm 減去左右邊界 2cm */
+const CONTENT_CM = 17;
 
 interface Styles {
   paragraphs: string[];
@@ -62,8 +66,44 @@ function build(blocks: Block[]): { body: string; auto: string } {
     return name;
   };
 
+  const table = (t: Table, i: number, spaceBefore: number): string => {
+    const name = `Tbl${i + 1}`;
+    st.paragraphs.push(
+      `<style:style style:name="${name}" style:family="table"><style:table-properties style:width="${CONTENT_CM}cm" table:align="margins" fo:margin-top="${spaceBefore}pt"/></style:style>`,
+      ...t.columns.map(
+        (w, c) =>
+          `<style:style style:name="${name}.C${c}" style:family="table-column"><style:table-column-properties style:column-width="${(w * CONTENT_CM).toFixed(2)}cm"/></style:style>`,
+      ),
+    );
+    const sizeProps = `fo:font-size="${t.size}pt" style:font-size-asian="${t.size}pt"`;
+    if (!st.paragraphs.some((p) => p.includes('style:name="TblCell"'))) {
+      st.paragraphs.push(
+        '<style:style style:name="TblCell" style:family="table-cell"><style:table-cell-properties fo:padding="0.1cm" fo:border="0.5pt solid #000000"/></style:style>',
+        `<style:style style:name="TblHead" style:family="paragraph" style:parent-style-name="Standard"><style:paragraph-properties fo:text-align="center"/><style:text-properties ${sizeProps} fo:font-weight="bold" style:font-weight-asian="bold"/></style:style>`,
+        `<style:style style:name="TblText" style:family="paragraph" style:parent-style-name="Standard"><style:text-properties ${sizeProps}/></style:style>`,
+      );
+    }
+    const row = (cells: string[], pStyle: string) =>
+      '<table:table-row>' +
+      cells
+        .map(
+          (c) =>
+            `<table:table-cell table:style-name="TblCell" office:value-type="string"><text:p text:style-name="${pStyle}">${textNodes(c)}</text:p></table:table-cell>`,
+        )
+        .join('') +
+      '</table:table-row>';
+    return (
+      `<table:table table:name="${name}" table:style-name="${name}">` +
+      t.columns.map((_, c) => `<table:table-column table:style-name="${name}.C${c}"/>`).join('') +
+      `<table:table-header-rows>${row(t.header, 'TblHead')}</table:table-header-rows>` +
+      t.rows.map((r) => row(r, 'TblText')).join('') +
+      '</table:table>'
+    );
+  };
+
   const body = blocks
     .map((b, i) => {
+      if (b.table) return table(b.table, i, b.spaceBefore ?? 0);
       const name = `P${i + 1}`;
       const props = [
         `fo:text-align="${ALIGN[b.align ?? 'left']}"`,

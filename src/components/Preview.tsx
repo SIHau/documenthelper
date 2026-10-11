@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { OfficialDocument } from '../model/types';
 import { buildBlocks } from '../export/layout';
-import type { Block, Run } from '../export/layout';
+import type { Block, Run, Table } from '../export/layout';
 
 function runStyle(r: Run): CSSProperties {
   return {
@@ -21,11 +21,31 @@ function blockStyle(b: Block): CSSProperties {
   };
 }
 
+function PreviewTable({ table, spaceBefore }: { table: Table; spaceBefore?: number }) {
+  return (
+    <table className="pv-table" style={{ fontSize: `${table.size}pt`, marginTop: spaceBefore ? `${spaceBefore}pt` : undefined }}>
+      <colgroup>
+        {table.columns.map((w, i) => <col key={i} style={{ width: `${w * 100}%` }} />)}
+      </colgroup>
+      <thead>
+        <tr>{table.header.map((h, i) => <th key={i}>{h}</th>)}</tr>
+      </thead>
+      <tbody>
+        {table.rows.map((row, i) => (
+          <tr key={i}>{row.map((c, j) => <td key={j}>{c}</td>)}</tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 /** 預覽與匯出共用同一份版面資料，確保所見即所得 */
 export function Preview({ doc }: { doc: OfficialDocument }) {
   return (
     <article className="page">
-      {buildBlocks(doc).map((b, i) => (
+      {buildBlocks(doc).map((b, i) => b.table ? (
+        <PreviewTable key={i} table={b.table} spaceBefore={b.spaceBefore} />
+      ) : (
         <p key={i} className="pv-p" style={blockStyle(b)}>
           {b.runs
             .filter((r) => r.text)

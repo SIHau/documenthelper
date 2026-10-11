@@ -13,8 +13,19 @@ export interface Run {
   font?: string;
 }
 
+/** 表格：欄寬以內容寬度的比例表示，儲存格為純文字 */
+export interface Table {
+  columns: number[];
+  header: string[];
+  rows: string[][];
+  /** pt */
+  size: number;
+}
+
 export interface Block {
   runs: Run[];
+  /** 有表格時 runs 為空，整個區塊是一張表 */
+  table?: Table;
   align?: 'left' | 'center' | 'right';
   /** em：整段左縮 */
   indentEm?: number;
@@ -32,6 +43,10 @@ export const SIGNATURE_FONTS: Record<OfficialDocument['signature']['font'], stri
 };
 export const SIGNATURE_COLOR = '1A4F8B';
 export const BODY_SIZE = 16;
+export const TABLE_SIZE = 12;
+/** 條文對照表：修正條文｜現行條文｜說明 */
+export const AMENDMENT_HEADER = ['修正條文', '現行條文', '說明'];
+export const AMENDMENT_COLUMNS = [0.37, 0.37, 0.26];
 
 /** 全形字算 1em、半形算 0.5em，用於估算標號寬度 */
 export function labelWidthEm(label: string): number {
@@ -103,7 +118,7 @@ export function buildBlocks(doc: OfficialDocument): Block[] {
 
   if (cfg.subject) {
     blocks.push({
-      runs: [{ text: '主旨：', bold: true }, { text: doc.subject || '（請填寫主旨）' }],
+      runs: [{ text: `${cfg.subjectLabel}：`, bold: true }, { text: doc.subject || `（請填寫${cfg.subjectLabel}）` }],
       spaceBefore: 12,
     });
   }
@@ -120,6 +135,23 @@ export function buildBlocks(doc: OfficialDocument): Block[] {
   };
   outline(cfg.explanationLabel, doc.explanation);
   outline(cfg.measuresLabel, doc.measures);
+
+  if (cfg.amendment) {
+    const { lawName, rows } = doc.amendment;
+    line(`${lawName.trim() || '（法規名稱）'}修正條文對照表`, { align: 'center', spaceBefore: 24 }, { bold: true });
+    blocks.push({
+      runs: [],
+      spaceBefore: 6,
+      table: {
+        columns: AMENDMENT_COLUMNS,
+        header: AMENDMENT_HEADER,
+        rows: rows
+          .filter((r) => r.amended.trim() || r.current.trim() || r.reason.trim())
+          .map((r) => [r.amended, r.current, r.reason]),
+        size: TABLE_SIZE,
+      },
+    });
+  }
 
   if (cfg.recipient && cfg.recipientAtEnd && doc.recipient.name) {
     line(`${cfg.recipientLabel}　${doc.recipient.name}`, { spaceBefore: 12 });

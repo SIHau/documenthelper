@@ -3,7 +3,7 @@ import type { PDFFont, PDFPage } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import type { OfficialDocument } from '../model/types';
 import { BODY_SIZE, buildBlocks } from './layout';
-import type { Block } from './layout';
+import type { Block, Run, Table } from './layout';
 import { findSubset } from './pdfFonts';
 import { woffToSfnt } from './woff';
 import type { FontFace, PdfFontSet } from './pdfFonts';
@@ -14,6 +14,7 @@ const MARGIN_X = 56.69; // 2 cm
 const MARGIN_Y = 70.87; // 2.5 cm
 const LINE_HEIGHT = 1.6;
 const CONTENT_W = PAGE_W - MARGIN_X * 2;
+const CELL_PAD = 4;
 
 const CLOSING = new Set('，。、；：？！）」』】》,.;:?!)');
 const OPENING = new Set('（「『【《(');
@@ -61,8 +62,8 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
     face?: FontFace;
     newline?: boolean;
   }
-  const perBlock: Item[][] = blocks.map((b) =>
-    b.runs.flatMap((r) =>
+  const toItems = (runs: Run[]): Item[] =>
+    runs.flatMap((r) =>
       [...r.text].map((ch): Item => ({
         ch,
         size: r.size ?? BODY_SIZE,
@@ -71,12 +72,20 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
         width: 0,
         newline: ch === '\n',
       })),
-    ),
+    );
+  const perBlock: Item[][] = blocks.map((b) => toItems(b.runs));
+  // 表格：每列每格各自一串字元，標題列粗體
+  const perCell: Item[][][][] = blocks.map((b) =>
+    b.table
+      ? [b.table.header, ...b.table.rows].map((row, ri) =>
+          row.map((text) => toItems([{ text, size: b.table!.size, bold: ri === 0 }])),
+        )
+      : [],
   );
 
   const missing = new Set<string>();
   const needed = new Map<string, FontFace>();
-  for (const items of perBlock) {
+  for (const items of [...perBlock, ...perCell.flat(2)]) {
     for (const it of items) {
       if (it.newline) continue;
       const cp = it.ch.codePointAt(0)!;
@@ -109,13 +118,14 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
   pdf.setLanguage('zh-TW');
 
   // 3. 量測字寬；沒有字體的字元略過
-  const measured: Item[][] = perBlock.map((items) =>
+  const measure = (items: Item[]): Item[] =>
     items.filter((it) => it.newline || it.file).map((it) => {
       if (it.newline) return it;
       const font = embedded.get(it.file!)!;
       return { ...it, font, width: font.widthOfTextAtSize(it.ch, it.size) };
-    }),
-  );
+    });
+  const measured = perBlock.map(measure);
+  const measuredCells = perCell.map((rows) => rows.map((row) => row.map(measure)));
 
   // 4. 排版與繪製
   let page: PDFPage | null = null;
@@ -128,12 +138,17 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
   const bottom = MARGIN_Y;
 
   blocks.forEach((b, bi) => {
+    if (b.table) {
+      drawTable(b.table, measuredCells[bi], b.spaceBefore ?? 0);
+      return;
+    }
     const items = measured[bi];
     if (!items.length) return;
     const em = BODY_SIZE;
     const left = (b.indentEm ?? 0) * em;
     const firstLeft = left - (b.hangingEm ?? 0) * em;
-    const lines = wrap(items, b, firstLeft, left);
+    const centered = b.align === 'right' || b.align === 'center';
+    const lines = wrap(items, (isFirst) => (centered ? CONTENT_W : CONTENT_W - (isFirst ? firstLeft : left)));
 
     let first = true;
     for (const line of lines) {
@@ -149,6 +164,41 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
       first = false;
     }
   });
+
+  /** 逐列繪製，放不下就換頁並重複標題列 */
+  function drawTable(t: Table, cells: Item[][][], spaceBefore: number) {
+    const colW = t.columns.map((f) => f * CONTENT_W);
+    const lineH = t.size * LINE_HEIGHT;
+    const rows = cells.map((row) => row.map((items, c) => wrap(items, () => colW[c] - CELL_PAD * 2)));
+    const heightOf = (lines: Line[][]) => Math.max(...lines.map((l) => l.length)) * lineH + CELL_PAD * 2;
+    const drawRow = (lines: Line[][], header: boolean) => {
+      const h = heightOf(lines);
+      let x = MARGIN_X;
+      lines.forEach((cellLines, c) => {
+        page!.drawRectangle({ x, y: y - h, width: colW[c], height: h, borderColor: rgb(0, 0, 0), borderWidth: 0.5 });
+        let cy = y - CELL_PAD;
+        for (const line of cellLines) {
+          const baseline = cy - (lineH - t.size) / 2 - t.size * 0.86;
+          const lx = header ? x + (colW[c] - line.width) / 2 : x + CELL_PAD;
+          drawLine(page!, line, lx, baseline);
+          cy -= lineH;
+        }
+        x += colW[c];
+      });
+      y -= h;
+    };
+    const [head, ...body] = rows;
+    if (y < PAGE_H - MARGIN_Y) y -= spaceBefore;
+    if (y - heightOf(head) - (body[0] ? heightOf(body[0]) : 0) < bottom) newPage();
+    drawRow(head, true);
+    for (const r of body) {
+      if (y - heightOf(r) < bottom) {
+        newPage();
+        drawRow(head, true);
+      }
+      drawRow(r, false);
+    }
+  }
 
   return { bytes: await pdf.save(), missing: [...missing] };
 }
@@ -184,10 +234,8 @@ function drawLine(page: PDFPage, line: Line, x: number, baseline: number): void 
 }
 
 /** 自動換行：中文逐字斷行、英數詞不拆、標點避頭尾 */
-function wrap(items: Glyph[] & Array<{ newline?: boolean }>, b: Block, firstLeft: number, left: number): Line[] {
+function wrap(items: Glyph[] & Array<{ newline?: boolean }>, widthFor: (isFirst: boolean) => number): Line[] {
   const lines: Line[] = [];
-  const widthFor = (isFirst: boolean) =>
-    b.align === 'right' || b.align === 'center' ? CONTENT_W : CONTENT_W - (isFirst ? firstLeft : left);
   const defaultSize = items.find((g) => !(g as { newline?: boolean }).newline)?.size ?? BODY_SIZE;
 
   let cur: Glyph[] = [];

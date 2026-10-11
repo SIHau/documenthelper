@@ -1,5 +1,5 @@
 /** 公文文種 */
-export type DocType = '函' | '書函' | '公告' | '開會通知單' | '簽';
+export type DocType = '函' | '書函' | '公告' | '開會通知單' | '簽' | '法規修正案';
 
 /** 開會通知單專用欄位 */
 export interface Meeting {
@@ -41,6 +41,23 @@ export interface ContactInfo {
   fax: string;
 }
 
+/** 條文對照表的一列：修正條文、現行條文、說明 */
+export interface AmendmentRow {
+  id: string;
+  /** 修正條文；空白表示刪除該條 */
+  amended: string;
+  /** 現行條文；空白表示新增條文 */
+  current: string;
+  reason: string;
+}
+
+/** 法規修正案專用欄位 */
+export interface Amendment {
+  /** 法規名稱，例：學生會組織章程 */
+  lawName: string;
+  rows: AmendmentRow[];
+}
+
 export type SignatureFont = 'yuji-boku' | 'kai' | 'default';
 
 /** 文末簽名（頭銜、姓名） */
@@ -78,4 +95,5 @@ export interface OfficialDocument {
   ccRecipients: string;
   signature: Signature;
   meeting: Meeting;
+  amendment: Amendment;
 }

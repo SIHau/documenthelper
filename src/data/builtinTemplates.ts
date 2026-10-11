@@ -1,4 +1,4 @@
-import { emptyDocument, newItem } from '../model/defaults';
+import { emptyDocument, newAmendmentRow, newItem } from '../model/defaults';
 import type { DocType, OfficialDocument } from '../model/types';
 
 export interface BuiltinTemplate {
@@ -84,6 +84,22 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
         subject: '為辦理○○○，簽請核示。',
         explanation: [newItem(0, '依據○○○辦理。'), newItem(0, '○○○。')],
         measures: [newItem(0, '擬准所請，奉核後辦理。')],
+      }),
+  },
+  {
+    id: 'builtin:amendment',
+    name: '法規修正案：條文對照表',
+    description: '向學生議會提出法規修正，附修正條文對照表',
+    build: () =>
+      make('法規修正案', {
+        direction: '上行',
+        subject: '擬修正○○○部分條文，提請審議案。',
+        explanation: [newItem(0, '為○○○，爰擬具○○○修正草案。'), newItem(0, '檢附修正條文對照表一份。')],
+        attachments: '修正條文對照表一份',
+        amendment: {
+          lawName: '○○○',
+          rows: [{ ...newAmendmentRow(), amended: '第○條　○○○。', current: '第○條　○○○。', reason: '○○○。' }],
+        },
       }),
   },
 ];

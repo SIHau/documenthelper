@@ -66,6 +66,46 @@ describe('buildBlocks per doc type', () => {
   });
 });
 
+function amendmentSample(): OfficialDocument {
+  const d = { ...sample(), type: '法規修正案' as const };
+  d.subject = '擬修正學生會組織章程第三條，提請審議案。';
+  d.amendment = {
+    lawName: '學生會組織章程',
+    rows: [
+      { id: 'a', amended: '第三條　本會置會長一人。', current: '第三條　本會置會長一人，副會長一人。', reason: '刪除副會長。' },
+      { id: 'b', amended: '', current: '', reason: '' },
+    ],
+  };
+  return d;
+}
+
+describe('法規修正案', () => {
+  it('uses 案由 and appends the comparison table without blank rows', () => {
+    const blocks = buildBlocks(amendmentSample());
+    const t = blocks.map((b) => b.runs.map((r) => r.text).join(''));
+    expect(t[0]).toContain('法規修正案');
+    expect(t.some((x) => x.startsWith('案由：'))).toBe(true);
+    expect(t.some((x) => x.startsWith('主旨'))).toBe(false);
+    expect(t).toContain('學生會組織章程修正條文對照表');
+    const table = blocks.find((b) => b.table)!.table!;
+    expect(table.header).toEqual(['修正條文', '現行條文', '說明']);
+    expect(table.rows).toEqual([['第三條　本會置會長一人。', '第三條　本會置會長一人，副會長一人。', '刪除副會長。']]);
+  });
+  it('exports the table to ODT and DOCX', async () => {
+    const odt = await JSZip.loadAsync(await buildOdt(amendmentSample()));
+    const content = await odt.file('content.xml')!.async('string');
+    const errors: string[] = [];
+    new DOMParser({ onError: (_l: string, m: string) => errors.push(m) }).parseFromString(content, 'text/xml');
+    expect(errors).toEqual([]);
+    expect(content).toContain('<table:table ');
+    expect(content).toContain('刪除副會長。');
+    const docx = await JSZip.loadAsync(await (await buildDocx(amendmentSample())).arrayBuffer());
+    const xml = await docx.file('word/document.xml')!.async('string');
+    expect(xml).toContain('<w:tbl>');
+    expect(xml).toContain('現行條文');
+  });
+});
+
 describe('buildOdt', () => {
   it('writes mimetype first and well-formed XML', async () => {
     const zip = await JSZip.loadAsync(await buildOdt(sample()));

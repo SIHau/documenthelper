@@ -1,7 +1,7 @@
-import { AlignmentType, Document, Packer, Paragraph, TextRun } from 'docx';
+import { AlignmentType, BorderStyle, Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
 import type { OfficialDocument } from '../model/types';
 import { BODY_FONT, BODY_SIZE, buildBlocks } from './layout';
-import type { Block } from './layout';
+import type { Block, Table as TableSpec } from './layout';
 
 const ALIGN = {
   left: AlignmentType.LEFT,
@@ -11,6 +11,9 @@ const ALIGN = {
 
 /** 1em（以本文 16pt 計）= 320 twips */
 const EM_TWIPS = BODY_SIZE * 20;
+/** A4 寬 11906 twips 減去左右邊界 */
+const CONTENT_TWIPS = 11906 - 1134 * 2;
+const LINE = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
 
 function paragraph(b: Block): Paragraph {
   return new Paragraph({
@@ -37,6 +40,43 @@ function paragraph(b: Block): Paragraph {
   });
 }
 
+function cell(text: string, width: number, size: number, header: boolean): TableCell {
+  return new TableCell({
+    width: { size: width, type: WidthType.DXA },
+    margins: { top: 80, bottom: 80, left: 80, right: 80 },
+    children: text.split('\n').map(
+      (line) =>
+        new Paragraph({
+          alignment: header ? AlignmentType.CENTER : AlignmentType.LEFT,
+          spacing: { line: 384 },
+          children: [new TextRun({ text: line, bold: header, size: size * 2 })],
+        }),
+    ),
+  });
+}
+
+function table(t: TableSpec): Table {
+  const widths = t.columns.map((f) => Math.round(f * CONTENT_TWIPS));
+  return new Table({
+    width: { size: CONTENT_TWIPS, type: WidthType.DXA },
+    columnWidths: widths,
+    borders: { top: LINE, bottom: LINE, left: LINE, right: LINE, insideHorizontal: LINE, insideVertical: LINE },
+    rows: [t.header, ...t.rows].map(
+      (row, ri) =>
+        new TableRow({
+          tableHeader: ri === 0,
+          children: row.map((text, ci) => cell(text, widths[ci], t.size, ri === 0)),
+        }),
+    ),
+  });
+}
+
+/** 表格前的段前距以空段落表示 */
+function nodes(b: Block): Array<Paragraph | Table> {
+  if (!b.table) return [paragraph(b)];
+  return [new Paragraph({ spacing: { before: (b.spaceBefore ?? 0) * 20, line: 240 }, children: [] }), table(b.table)];
+}
+
 export async function buildDocx(doc: OfficialDocument): Promise<Blob> {
   const file = new Document({
     title: doc.subject,
@@ -56,7 +96,7 @@ export async function buildDocx(doc: OfficialDocument): Promise<Blob> {
             margin: { top: 1418, bottom: 1418, left: 1134, right: 1134 },
           },
         },
-        children: buildBlocks(doc).map(paragraph),
+        children: buildBlocks(doc).flatMap(nodes),
       },
     ],
   });

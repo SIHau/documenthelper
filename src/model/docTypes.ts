@@ -11,6 +11,8 @@ export interface DocTypeConfig {
   docNumber: boolean;
   urgencySecrecy: boolean;
   subject: boolean;
+  /** 主旨欄的標題（議案稱「案由」） */
+  subjectLabel: string;
   /** 說明段標題；null 表示此文種沒有 */
   explanationLabel: string | null;
   measuresLabel: string | null;
@@ -20,6 +22,8 @@ export interface DocTypeConfig {
   routing: boolean;
   /** 主旨是否必須以期望語結尾（請查照等） */
   expectation: boolean;
+  /** 法規修正案：條文對照表 */
+  amendment: boolean;
 }
 
 const LETTER: DocTypeConfig = {
@@ -30,11 +34,13 @@ const LETTER: DocTypeConfig = {
   docNumber: true,
   urgencySecrecy: true,
   subject: true,
+  subjectLabel: '主旨',
   explanationLabel: '說明',
   measuresLabel: '辦法',
   meeting: false,
   routing: true,
   expectation: true,
+  amendment: false,
 };
 
 export const DOC_TYPES: Record<DocType, DocTypeConfig> = {
@@ -68,6 +74,14 @@ export const DOC_TYPES: Record<DocType, DocTypeConfig> = {
     measuresLabel: '擬辦',
     routing: false,
     expectation: false,
+  },
+  法規修正案: {
+    ...LETTER,
+    urgencySecrecy: false,
+    subjectLabel: '案由',
+    measuresLabel: null,
+    expectation: false,
+    amendment: true,
   },
 };
 
