@@ -213,6 +213,7 @@ npm run desktop:build  # 產生桌面版安裝檔（位於 src-tauri/target/rele
 | `src/export/` | 版面資料、ODT、DOCX、PDF 產生 |
 | `src/db/` | IndexedDB、通訊錄 CSV、備份還原 |
 | `src/components/` | 介面元件 |
+| `src/protocol/` | StudentGov 送達協定：簽章事件、`.sgdoc` 文件包、Receipt 與驗證（規格見 `docs/delivery-protocol.md`） |
 | `src-tauri/` | 桌面版（Tauri） |
 
 檢查規則與用語可直接調整：`src/rules/index.ts`、`src/rules/colloquial.ts`、`src/data/phrases.ts`；文種欄位設定在 `src/model/docTypes.ts`。
