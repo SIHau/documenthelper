@@ -277,3 +277,33 @@ describe('學生議會表格類文書', () => {
     expect(xml).toMatch(/<\/w:tbl><w:p\b[^>]*\/?>(?:(?!<w:tbl>).)*<w:sectPr/s);
   });
 });
+
+describe('概算書', () => {
+  it('builds cover, contents, 總說明 and a totalled budget table on separate pages', () => {
+    const d = { ...emptyDocument('概算書'), sender: { name: '板中學生議會' } };
+    d.budget = {
+      ...d.budget,
+      year: '114',
+      duties: '審議預算。',
+      tableTitle: '114學年度預算案',
+      items: [
+        { id: 'a', unit: '秘書處', name: '冷氣費', code: '1', amount: '1,200', note: '' },
+        { id: 'b', unit: '秘書處', name: '影印費', code: '2', amount: '300元', note: '印製' },
+        { id: 'c', unit: '財務處', name: '文具', code: '3', amount: '待定', note: '' },
+      ],
+    };
+    const blocks = buildBlocks(d);
+    const t = blocks.map((b) => b.runs.map((r) => r.text).join(''));
+    expect(t[0]).toBe('中華民國114學年度');
+    expect(t).toContain('板中學生議會概算案');
+    expect(t).toContain('審議預算。');
+    expect(blocks.filter((b) => b.pageBreakBefore).map((b) => b.runs[0].text)).toEqual(['中華民國114學年度板中學生議會概算案', '甲、總說明', '貳、概算案']);
+    const table = blocks.find((b) => b.table)!.table!;
+    expect(table.rows).toEqual([
+      ['秘書處', '冷氣費', '1', '1,200', ''],
+      ['', '影印費', '2', '300', '印製'],
+      ['財務處', '文具', '3', '待定', ''],
+      ['合計', '', '', '1,500', ''],
+    ]);
+  });
+});

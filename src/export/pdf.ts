@@ -177,7 +177,7 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
       const before = first ? (b.spaceBefore ?? 0) : 0;
       const atTop = y >= PAGE_H - MARGIN_Y;
       if (!atTop && y - before - lineH < bottom) newPage();
-      else if (!atTop) y -= before; // 頁首不加段前距
+      else if (!atTop || b.keepSpace) y -= before; // 頁首不加段前距（keepSpace 除外）
       const baseline = y - (lineH - line.size) / 2 - line.size * 0.86;
       const startX = lineX(b, line, first ? firstLeft : left, MARGIN_X, CONTENT_W);
       drawLine(page!, line, startX, baseline);

@@ -1,4 +1,4 @@
-import { emptyDocument, newAmendmentRow, newItem, newMinutesCase } from '../model/defaults';
+import { emptyDocument, newAmendmentRow, newBudgetItem, newItem, newMinutesCase } from '../model/defaults';
 import type { DocType, OfficialDocument } from '../model/types';
 
 export interface BuiltinTemplate {
@@ -268,6 +268,28 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       make('簽到表', {
         sender: { name: COUNCIL },
         meeting: { ...emptyDocument().meeting, reason: '第○屆第○次常會', time: '中華民國○年○月○日' },
+      }),
+  },
+  {
+    id: 'builtin:council-budget',
+    name: '學生議會：概算書',
+    description: '封面、目次、總說明與概算表（自動合計）',
+    build: () =>
+      make('概算書', {
+        sender: { name: COUNCIL },
+        budget: {
+          year: '○',
+          period: '○年○月○日至○年○月○日',
+          editor: '○○高中第○屆學生議會',
+          duties: '○○○。',
+          divisions: '○○○。',
+          purpose: '○○○。',
+          tableTitle: '○學年度第○學期○○高中學生議會第○屆預算案',
+          items: [
+            { ...newBudgetItem('秘書處'), name: '影印費', code: '○', amount: '0', note: '簽到表、公告等文件印製。' },
+            { ...newBudgetItem('秘書處'), name: '文具', code: '○', amount: '0', note: '資料夾、釘書機等。' },
+          ],
+        },
       }),
   },
   {

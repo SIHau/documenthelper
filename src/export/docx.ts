@@ -1,4 +1,4 @@
-import { AlignmentType, BorderStyle, HeightRule, VerticalAlign, Document, Footer, Header, PageNumber, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
+import { AlignmentType, BorderStyle, LineRuleType, HeightRule, VerticalAlign, Document, Footer, Header, PageNumber, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
 import type { OfficialDocument } from '../model/types';
 import { BODY_FONT, BODY_SIZE, PAGE_NUMBER_PARTS, buildBlocks, hasPageNumbers, marginXcm, pageHeader } from './layout';
 import type { Block, Table as TableSpec } from './layout';
@@ -18,7 +18,7 @@ function paragraph(b: Block): Paragraph {
   return new Paragraph({
     alignment: ALIGN[b.align ?? 'left'],
     pageBreakBefore: b.pageBreakBefore,
-    spacing: { before: (b.spaceBefore ?? 0) * 20, line: 384 },
+    spacing: { before: (b.spaceBefore ?? 0) * 20, line: 384, lineRule: LineRuleType.AUTO },
     indent: b.indentEm
       ? {
           left: Math.round(b.indentEm * EM_TWIPS),
@@ -49,7 +49,7 @@ function cell(text: string, width: number, size: number, header: boolean, center
       (line) =>
         new Paragraph({
           alignment: header || center ? AlignmentType.CENTER : AlignmentType.LEFT,
-          spacing: { line: 384 },
+          spacing: { line: 384, lineRule: LineRuleType.AUTO },
           children: [new TextRun({ text: line, bold: header, size: size * 2 })],
         }),
     ),

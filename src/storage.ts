@@ -15,8 +15,9 @@ export function normalizeDocument(saved: Record<string, unknown>): OfficialDocum
   const motion = { ...base.motion, ...(saved.motion as object) };
   motion.rows = motion.rows.map((r) => ({ ...r, proposals: r.proposals ?? [] }));
   const minutes = { ...base.minutes, ...(saved.minutes as object) };
+  const budget = { ...base.budget, ...(saved.budget as object) };
   const archive = { ...base.archive, ...(saved.archive as object) };
-  return { ...base, ...saved, contact, signature, meeting, motion, archive, minutes } as OfficialDocument;
+  return { ...base, ...saved, contact, signature, meeting, motion, archive, minutes, budget } as OfficialDocument;
 }
 
 export function loadDraft(): OfficialDocument {

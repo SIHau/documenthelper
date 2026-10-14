@@ -3,6 +3,7 @@ import { DOC_TYPES } from '../model/docTypes';
 import { toMinguoText } from '../model/date';
 import { DOWNWARD_ONLY, NOT_UPWARD, UPWARD_ONLY } from '../data/phrases';
 import { COLLOQUIAL } from './colloquial';
+import { parseAmount } from '../model/amount';
 
 export type Severity = 'error' | 'warn' | 'info';
 
@@ -101,6 +102,20 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
       }
     });
   }
+  if (cfg.layout === 'budget') {
+    const b = doc.budget;
+    const where = '概算書';
+    if (!hasText(b.year)) add('budget-year', 'error', where, '尚未填寫學年度。');
+    const items = b.items.filter((it) => hasText(it.name) || hasText(it.amount) || hasText(it.note));
+    if (!items.length) add('budget-items', 'error', '貳、概算案', '概算表沒有任何項目。');
+    items.forEach((it, i) => {
+      if (!hasText(it.amount)) add(`budget-amount:${it.id}`, 'warn', '貳、概算案', `第 ${i + 1} 項尚未填寫費用。`);
+      else if (parseAmount(it.amount) === null) add(`budget-amount:${it.id}`, 'error', '貳、概算案', `第 ${i + 1} 項的費用「${it.amount}」不是數字，不會計入合計。`);
+    });
+    for (const [label, text] of [['現行法定掌職', b.duties], ['內部分層業務', b.divisions], ['設立概算目的', b.purpose]] as const) {
+      if (!hasText(text)) add(`budget-text:${label}`, 'warn', '壹、前言', `尚未填寫${label}。`);
+    }
+  }
   if (cfg.layout === 'correction' && !hasText(doc.motion.proposer)) add('motion-proposer', 'error', '提案議員', '尚未填寫提案議員。');
   if (cfg.layout === 'review') {
     const table = '審查報告對照表';
@@ -162,6 +177,11 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     ...sections.filter((s) => s.text.includes('○')).map((s) => s.where),
     ...(doc.attachments.includes('○') ? ['附件'] : []),
     ...((cfg.meeting || cfg.senderOnly) && Object.values(doc.meeting).some((v) => v.includes('○')) ? ['開會資訊'] : []),
+    ...(cfg.layout === 'budget' &&
+    [doc.budget.year, doc.budget.period, doc.budget.editor, doc.budget.duties, doc.budget.divisions, doc.budget.purpose, doc.budget.tableTitle,
+      ...doc.budget.items.flatMap((it) => [it.unit, it.name, it.code, it.amount, it.note])].some((v) => v.includes('○'))
+      ? ['概算書']
+      : []),
     ...(cfg.layout === 'minutes' &&
     [doc.minutes.opening, doc.minutes.speech, doc.minutes.agendaNote, doc.minutes.extempore,
       ...doc.minutes.cases.flatMap((c) => [c.proposer, c.subject, c.explanation, c.resolution])].some((v) => v.includes('○'))
