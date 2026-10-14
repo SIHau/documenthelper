@@ -5,6 +5,7 @@ import type { Agency } from '../db/types';
 import { AgencyPicker } from './AgencyPicker';
 import { OutlineEditor } from './OutlineEditor';
 import { DraftTableEditor } from './DraftTableEditor';
+import { MinutesCaseEditor } from './MinutesCaseEditor';
 import { confirmDialog } from '../dialogs';
 import { COUNCIL_WORDS, defaultWord, nextDocNumber } from '../model/docNumber';
 
@@ -38,6 +39,28 @@ const MEETING_FIELDS: Array<[keyof OfficialDocument['meeting'], string, boolean]
   ['agenda', '議程標題（每行一列，另起一頁；可留空）', true],
 ];
 
+type MeetingKey = keyof OfficialDocument['meeting'];
+/** 會議紀錄與簽到表使用的開會資訊欄位：[欄位, 標題, 多行] */
+const RECORD_FIELDS: Record<'minutes' | 'signin', Array<[MeetingKey, string, boolean]>> = {
+  minutes: [
+    ['reason', '會議名稱（標題第二行，例：學生議會第十五屆第一次常會）', false],
+    ['time', '時間', false],
+    ['place', '地點', false],
+    ['chair', '主席', false],
+    ['attendees', '出席者', true],
+    ['onLeave', '請假者', true],
+    ['absent', '缺席者', true],
+    ['observers', '列席者', true],
+    ['recorder', '記錄人員', false],
+  ],
+  signin: [
+    ['reason', '會議名稱', false],
+    ['time', '會議日期', false],
+    ['attendees', '應到人員（以空白或頓號分隔，印在簽名格上方）', true],
+    ['observers', '列席人員（可留空，現場手寫）', true],
+  ],
+};
+
 export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: Props) {
   const findAgency = (name: string) => agencies.find((a) => a.name === name.trim());
   /** 發文機關：名稱完全符合通訊錄時，帶入代碼、地址與聯絡資料（只補空白欄位） */
@@ -63,6 +86,8 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
     onChange({ ...doc, motion: { ...doc.motion, [key]: value } });
   const setMeeting = (key: keyof OfficialDocument['meeting'], value: string) =>
     onChange({ ...doc, meeting: { ...doc.meeting, [key]: value } });
+  const setMinutes = <K extends keyof OfficialDocument['minutes']>(key: K, value: OfficialDocument['minutes'][K]) =>
+    onChange({ ...doc, minutes: { ...doc.minutes, [key]: value } });
   const setArchive = (key: keyof OfficialDocument['archive'], value: string) =>
     onChange({ ...doc, archive: { ...doc.archive, [key]: value } });
   const docWord = /^(.+?字)第/.exec(doc.docNumber)?.[1] ?? defaultWord(doc.type, doc.sender.name);
@@ -211,6 +236,61 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
         </fieldset>
       )}
 
+      {!cfg.letterhead && (cfg.senderOnly || cfg.recipient) && (
+        <fieldset>
+          <legend>{cfg.senderOnly ? '機關' : cfg.recipientLabel}</legend>
+          <div className="grid">
+            {cfg.senderOnly && (
+              <Field label="機關名稱（標題）">
+                <input value={doc.sender.name} list="agency-list" placeholder="例：○○高級中學學生議會"
+                  onChange={(e) => changeSender(e.target.value)} />
+              </Field>
+            )}
+            {cfg.recipient && (
+              <Field label={cfg.recipientLabel}>
+                <input value={doc.recipient.name} list="agency-list"
+                  onChange={(e) => changeRecipient(e.target.value)} />
+              </Field>
+            )}
+          </div>
+        </fieldset>
+      )}
+
+      {(cfg.layout === 'minutes' || cfg.layout === 'signin') && (
+        <fieldset>
+          <legend>會議資訊</legend>
+          {RECORD_FIELDS[cfg.layout].map(([key, label, multi]) => (
+            <Field key={key} label={label}>
+              {multi ? (
+                <textarea rows={2} value={doc.meeting[key]} onChange={(e) => setMeeting(key, e.target.value)} />
+              ) : (
+                <input value={doc.meeting[key]} onChange={(e) => setMeeting(key, e.target.value)} />
+              )}
+            </Field>
+          ))}
+        </fieldset>
+      )}
+
+      {cfg.layout === 'minutes' && (
+        <fieldset>
+          <legend>會議經過</legend>
+          <Field label="壹、主席宣布開會（時刻，例：12:20）">
+            <input value={doc.minutes.opening} onChange={(e) => setMinutes('opening', e.target.value)} />
+          </Field>
+          <Field label="貳、主席致詞（留空印「無。」）">
+            <textarea rows={2} value={doc.minutes.speech} onChange={(e) => setMinutes('speech', e.target.value)} />
+          </Field>
+          <Field label="參、宣讀並確認本次會議議程（留空印「確認。」）">
+            <input value={doc.minutes.agendaNote} onChange={(e) => setMinutes('agendaNote', e.target.value)} />
+          </Field>
+          <p className="hint">肆、討論事項</p>
+          <MinutesCaseEditor cases={doc.minutes.cases} onChange={(v) => setMinutes('cases', v)} />
+          <Field label="伍、臨時動議（留空印「無。」）">
+            <textarea rows={2} value={doc.minutes.extempore} onChange={(e) => setMinutes('extempore', e.target.value)} />
+          </Field>
+        </fieldset>
+      )}
+
       {cfg.subject && (
         <fieldset>
           <legend>{cfg.subjectLabel}{cfg.subjectRequired ? '' : '（可留空，本文直接寫在下方）'}</legend>
@@ -234,10 +314,9 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
         </fieldset>
       )}
 
-      {cfg.motion && (
-        <>
+      {cfg.proposers && (
           <fieldset>
-            <legend>提案人與連署人</legend>
+            <legend>{cfg.motion ? '提案人與連署人' : '提案議員'}</legend>
             <div className="grid">
               <Field label="提案人">
                 <input value={doc.motion.proposer} placeholder="議員姓名或黨團名稱"
@@ -249,6 +328,31 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
               </Field>
             </div>
           </fieldset>
+      )}
+
+      {cfg.layout === 'review' && (
+        <fieldset>
+          <legend>審查報告對照表</legend>
+          <div className="grid">
+            <Field label="法規與草案名稱（標題第一行）">
+              <input value={doc.motion.draftTitle} placeholder="例：○○學生議會議事規則部分條文修正草案"
+                onChange={(e) => setMotion('draftTitle', e.target.value)} />
+            </Field>
+            <Field label="審查會">
+              <input value={doc.motion.reviewer} placeholder="例：法制委員會"
+                onChange={(e) => setMotion('reviewer', e.target.value)} />
+            </Field>
+            <Field label="併案審查的提案（以頓號分隔，每案一欄）">
+              <input value={doc.motion.proposalNames.join('、')} placeholder="例：王小明等三人、○○黨團"
+                onChange={(e) => setMotion('proposalNames', e.target.value.split(/[、，,]/).map((x) => x.trim()))} />
+            </Field>
+          </div>
+          <DraftTableEditor mode="審查" rows={doc.motion.rows} reviewer={doc.motion.reviewer}
+            proposalNames={doc.motion.proposalNames.filter((x) => x)} onChange={(rows) => setMotion('rows', rows)} />
+        </fieldset>
+      )}
+
+      {cfg.motion && (
           <fieldset>
             <legend>草案對照表（另起一頁，可留空）</legend>
             <div className="grid">
@@ -266,7 +370,6 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
             <DraftTableEditor mode={doc.motion.mode} rows={doc.motion.rows}
               onChange={(rows) => setMotion('rows', rows)} />
           </fieldset>
-        </>
       )}
 
       {cfg.letterhead && (

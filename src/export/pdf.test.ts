@@ -75,6 +75,7 @@ describe('buildPdf', () => {
   it('draws the motion header, draft page and repeats the table header across pages', async () => {
     const d = { ...sample(), type: '議案關係文書' as const, subject: '擬具草案，是否有當？敬請公決。' };
     d.motion = {
+      ...d.motion,
       term: '十四',
       proposer: '王小明',
       cosigners: '王中明 王大明',

@@ -29,12 +29,18 @@ function PreviewTable({ table, spaceBefore }: { table: Table; spaceBefore?: numb
       <colgroup>
         {table.columns.map((w, i) => <col key={i} style={{ width: `${w * 100}%` }} />)}
       </colgroup>
-      <thead>
-        <tr>{table.header.map((h, i) => <th key={i}>{h}</th>)}</tr>
-      </thead>
+      {table.header.length > 0 && (
+        <thead>
+          <tr>{table.header.map((h, i) => <th key={i}>{h}</th>)}</tr>
+        </thead>
+      )}
       <tbody>
         {table.rows.map((row, i) => (
-          <tr key={i}>{row.map((c, j) => <td key={j}>{c}</td>)}</tr>
+          <tr key={i} style={{ height: table.rowHeight ? `${table.rowHeight}pt` : undefined }}>
+            {row.map((c, j) => (
+              <td key={j} style={table.center ? { textAlign: 'center', verticalAlign: 'middle' } : undefined}>{c}</td>
+            ))}
+          </tr>
         ))}
       </tbody>
     </table>

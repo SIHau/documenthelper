@@ -34,6 +34,12 @@ export interface DocTypeConfig {
   filing: boolean;
   /** 議案關係文書：提案人、連署人與草案對照表 */
   motion: boolean;
+  /** 版面：一般公文（函頭類、議案關係文書）或學生議會的表格類文書 */
+  layout: 'standard' | 'review' | 'correction' | 'minutes' | 'signin';
+  /** 表單顯示提案人、連署人 */
+  proposers: boolean;
+  /** 沒有函頭，但標題要用機關名稱（會議紀錄、簽到表） */
+  senderOnly: boolean;
 }
 
 const LETTER: DocTypeConfig = {
@@ -56,6 +62,24 @@ const LETTER: DocTypeConfig = {
   letterhead: true,
   filing: true,
   motion: false,
+  layout: 'standard',
+  proposers: false,
+  senderOnly: false,
+};
+
+/** 學生議會表格類文書的共同設定：沒有函頭、受文者、主旨與分項內容 */
+const COUNCIL_FORM: DocTypeConfig = {
+  ...LETTER,
+  recipient: false,
+  docNumber: false,
+  urgencySecrecy: false,
+  subject: false,
+  explanationLabel: null,
+  measuresLabel: null,
+  routing: false,
+  expectation: false,
+  letterhead: false,
+  filing: false,
 };
 
 export const DOC_TYPES: Record<DocType, DocTypeConfig> = {
@@ -123,7 +147,22 @@ export const DOC_TYPES: Record<DocType, DocTypeConfig> = {
     letterhead: false,
     filing: false,
     motion: true,
+    proposers: true,
   },
+  // 審查會通過條文｜各提案｜現行條文｜說明
+  審查報告對照表: { ...COUNCIL_FORM, layout: 'review' },
+  糾正案: {
+    ...COUNCIL_FORM,
+    layout: 'correction',
+    recipient: true,
+    recipientLabel: '被糾正機關',
+    subject: true,
+    subjectLabel: '案由',
+    explanationLabel: '事實與理由',
+    proposers: true,
+  },
+  會議紀錄: { ...COUNCIL_FORM, layout: 'minutes', senderOnly: true },
+  簽到表: { ...COUNCIL_FORM, layout: 'signin', senderOnly: true },
 };
 
 export const DOC_TYPE_LIST = Object.keys(DOC_TYPES) as DocType[];

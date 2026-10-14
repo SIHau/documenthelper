@@ -1,4 +1,4 @@
-import { AlignmentType, BorderStyle, Document, Footer, Header, PageNumber, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
+import { AlignmentType, BorderStyle, HeightRule, VerticalAlign, Document, Footer, Header, PageNumber, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
 import type { OfficialDocument } from '../model/types';
 import { BODY_FONT, BODY_SIZE, PAGE_NUMBER_PARTS, buildBlocks, hasPageNumbers, marginXcm, pageHeader } from './layout';
 import type { Block, Table as TableSpec } from './layout';
@@ -40,14 +40,15 @@ function paragraph(b: Block): Paragraph {
   });
 }
 
-function cell(text: string, width: number, size: number, header: boolean): TableCell {
+function cell(text: string, width: number, size: number, header: boolean, center = false): TableCell {
   return new TableCell({
     width: { size: width, type: WidthType.DXA },
+    verticalAlign: center ? VerticalAlign.CENTER : undefined,
     margins: { top: 80, bottom: 80, left: 80, right: 80 },
     children: text.split('\n').map(
       (line) =>
         new Paragraph({
-          alignment: header ? AlignmentType.CENTER : AlignmentType.LEFT,
+          alignment: header || center ? AlignmentType.CENTER : AlignmentType.LEFT,
           spacing: { line: 384 },
           children: [new TextRun({ text: line, bold: header, size: size * 2 })],
         }),
@@ -61,19 +62,26 @@ function table(t: TableSpec, contentTwips: number): Table {
     width: { size: contentTwips, type: WidthType.DXA },
     columnWidths: widths,
     borders: { top: LINE, bottom: LINE, left: LINE, right: LINE, insideHorizontal: LINE, insideVertical: LINE },
-    rows: [t.header, ...t.rows].map(
-      (row, ri) =>
-        new TableRow({
-          tableHeader: ri === 0,
-          children: row.map((text, ci) => cell(text, widths[ci], t.size, ri === 0)),
-        }),
-    ),
+    rows: [
+      ...(t.header.length
+        ? [new TableRow({ tableHeader: true, children: t.header.map((text, ci) => cell(text, widths[ci], t.size, true)) })]
+        : []),
+      ...t.rows.map(
+        (row) =>
+          new TableRow({
+            height: t.rowHeight ? { value: t.rowHeight * 20, rule: HeightRule.ATLEAST } : undefined,
+            children: row.map((text, ci) => cell(text, widths[ci], t.size, false, t.center)),
+          }),
+      ),
+    ],
   });
 }
 
 /** 表格前的段前距以空段落表示 */
 function nodes(b: Block, contentTwips: number): Array<Paragraph | Table> {
   if (!b.table) return [paragraph(b)];
+  // 沒有段前距時表格緊接前一張表（簽到表的簽名格與列席欄）
+  if (!b.spaceBefore) return [table(b.table, contentTwips)];
   return [new Paragraph({ spacing: { before: (b.spaceBefore ?? 0) * 20, line: 240 }, children: [] }), table(b.table, contentTwips)];
 }
 
@@ -81,6 +89,9 @@ export async function buildDocx(doc: OfficialDocument): Promise<Blob> {
   const headerText = pageHeader(doc);
   const mx = Math.round(marginXcm(doc) * CM_TWIPS);
   const contentTwips = 11906 - mx * 2;
+  const body = buildBlocks(doc).flatMap((b) => nodes(b, contentTwips));
+  // Word 要求表格之後至少有一個段落
+  if (body[body.length - 1] instanceof Table) body.push(new Paragraph({ children: [] }));
   const file = new Document({
     title: doc.subject,
     creator: 'documenthelper',
@@ -123,7 +134,7 @@ export async function buildDocx(doc: OfficialDocument): Promise<Blob> {
             margin: { top: 1418, bottom: 1418, left: mx, right: mx, header: 851, footer: 680 },
           },
         },
-        children: buildBlocks(doc).flatMap((b) => nodes(b, contentTwips)),
+        children: body,
       },
     ],
   });

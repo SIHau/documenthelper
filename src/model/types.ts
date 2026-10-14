@@ -1,5 +1,17 @@
 /** 公文文種 */
-export type DocType = '函' | '書函' | '令' | '公告' | '開會通知單' | '催辦案件通知單' | '簽' | '議案關係文書';
+export type DocType =
+  | '函'
+  | '書函'
+  | '令'
+  | '公告'
+  | '開會通知單'
+  | '催辦案件通知單'
+  | '簽'
+  | '議案關係文書'
+  | '審查報告對照表'
+  | '糾正案'
+  | '會議紀錄'
+  | '簽到表';
 
 /** 開會通知單專用欄位 */
 export interface Meeting {
@@ -13,6 +25,10 @@ export interface Meeting {
   observers: string;
   /** 備註；每行一點，匯出時自動加上「一、」「二、」 */
   remarks: string;
+  /** 會議紀錄：請假者、缺席者、記錄人員 */
+  onLeave: string;
+  absent: string;
+  recorder: string;
   /** 議程頁標題，每行一列，例：第十五屆學生議會\n法制委員會第一次會議；議程另起一頁 */
   agenda: string;
 }
@@ -52,6 +68,8 @@ export interface AmendmentRow {
   /** 現行條文；空白表示新增條文；新訂草案不使用 */
   current: string;
   reason: string;
+  /** 審查報告對照表：各提案的條文，順序對應 Motion.proposalNames */
+  proposals?: string[];
 }
 
 /** 修正：修正條文｜現行條文｜說明；新訂：條文｜說明 */
@@ -69,6 +87,31 @@ export interface Motion {
   draftTitle: string;
   mode: DraftMode;
   rows: AmendmentRow[];
+  /** 審查報告對照表：審查會名稱（例：法制委員會），表頭為「法制委員會通過條文」 */
+  reviewer: string;
+  /** 審查報告對照表：併案審查的提案名稱（例：王小明等三人），每個提案一欄 */
+  proposalNames: string[];
+}
+
+/** 會議紀錄的一個討論案 */
+export interface MinutesCase {
+  id: string;
+  proposer: string;
+  subject: string;
+  /** 說明，每行一點 */
+  explanation: string;
+  /** 決議，每行一點 */
+  resolution: string;
+}
+
+/** 會議紀錄：壹、主席宣布開會 … 伍、臨時動議 */
+export interface Minutes {
+  /** 開會時刻，例：12:20 */
+  opening: string;
+  speech: string;
+  agendaNote: string;
+  cases: MinutesCase[];
+  extempore: string;
 }
 
 /** 檔號與保存年限（函頭右上角） */
@@ -116,4 +159,5 @@ export interface OfficialDocument {
   archive: Archive;
   meeting: Meeting;
   motion: Motion;
+  minutes: Minutes;
 }

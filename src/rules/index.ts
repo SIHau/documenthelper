@@ -87,6 +87,33 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
       }
     });
   }
+  if (cfg.senderOnly && !hasText(doc.sender.name)) add('sender', 'error', '機關', '尚未填寫機關名稱。');
+  if (cfg.layout === 'minutes' || cfg.layout === 'signin') {
+    if (!hasText(doc.meeting.reason)) add('m-reason', 'error', '會議資訊', '尚未填寫會議名稱。');
+    if (!hasText(doc.meeting.time)) add('m-time', 'warn', '會議資訊', cfg.layout === 'minutes' ? '尚未填寫開會時間。' : '尚未填寫會議日期。');
+  }
+  if (cfg.layout === 'minutes') {
+    if (!hasText(doc.meeting.chair)) add('m-chair', 'warn', '會議資訊', '尚未填寫主席。');
+    if (!hasText(doc.meeting.recorder)) add('m-recorder', 'warn', '會議資訊', '尚未填寫記錄人員。');
+    doc.minutes.cases.forEach((c, i) => {
+      if ((hasText(c.subject) || hasText(c.explanation)) && !hasText(c.resolution)) {
+        add(`case-resolution:${c.id}`, 'warn', '討論事項', `第${i + 1}案尚未填寫決議。`);
+      }
+    });
+  }
+  if (cfg.layout === 'correction' && !hasText(doc.motion.proposer)) add('motion-proposer', 'error', '提案議員', '尚未填寫提案議員。');
+  if (cfg.layout === 'review') {
+    const table = '審查報告對照表';
+    const names = doc.motion.proposalNames.filter(hasText);
+    if (!hasText(doc.motion.draftTitle)) add('draft-title', 'error', table, '尚未填寫法規與草案名稱。');
+    if (!hasText(doc.motion.reviewer)) add('review-reviewer', 'warn', table, '尚未填寫審查會，表頭會顯示「○○委員會通過條文」。');
+    if (!names.length) add('review-proposals', 'warn', table, '尚未填寫併案審查的提案，表格只會有通過條文、現行條文與說明三欄。');
+    const filled = doc.motion.rows.filter((r) => hasText(r.amended) || hasText(r.current) || hasText(r.reason));
+    if (!filled.length) add('draft-rows', 'error', table, '對照表沒有任何條文。');
+    filled.forEach((r, i) => {
+      if (!hasText(r.reason)) add(`draft-reason:${r.id}`, 'warn', table, `第 ${i + 1} 列尚未填寫說明。`);
+    });
+  }
   if (cfg.letterhead && doc.signature.enabled && hasText(doc.signature.title) && !hasText(doc.signature.name)) {
     add('sign-name', 'warn', '簽名', '已填頭銜但未填姓名。');
   }
@@ -134,11 +161,16 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
   const placeholderWhere = [
     ...sections.filter((s) => s.text.includes('○')).map((s) => s.where),
     ...(doc.attachments.includes('○') ? ['附件'] : []),
-    ...(cfg.meeting && Object.values(doc.meeting).some((v) => v.includes('○')) ? ['開會資訊'] : []),
-    ...(cfg.motion &&
-    [doc.motion.term, doc.motion.proposer, doc.motion.cosigners, doc.motion.draftTitle,
+    ...((cfg.meeting || cfg.senderOnly) && Object.values(doc.meeting).some((v) => v.includes('○')) ? ['開會資訊'] : []),
+    ...(cfg.layout === 'minutes' &&
+    [doc.minutes.opening, doc.minutes.speech, doc.minutes.agendaNote, doc.minutes.extempore,
+      ...doc.minutes.cases.flatMap((c) => [c.proposer, c.subject, c.explanation, c.resolution])].some((v) => v.includes('○'))
+      ? ['會議經過']
+      : []),
+    ...((cfg.motion || cfg.proposers || cfg.layout === 'review') &&
+    [doc.motion.term, doc.motion.reviewer, ...doc.motion.proposalNames, ...doc.motion.rows.flatMap((r) => r.proposals ?? []), doc.motion.proposer, doc.motion.cosigners, doc.motion.draftTitle,
       ...doc.motion.rows.flatMap((r) => [r.amended, r.current, r.reason])].some((v) => v.includes('○'))
-      ? ['議案關係文書']
+      ? [cfg.motion ? '議案關係文書' : cfg.layout === 'review' ? '審查報告對照表' : '提案議員']
       : []),
   ];
   for (const where of new Set(placeholderWhere)) {

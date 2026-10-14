@@ -92,7 +92,7 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
   const perCell: Item[][][][] = blocks.map((b) =>
     b.table
       ? [b.table.header, ...b.table.rows].map((row, ri) =>
-          row.map((text) => toItems([{ text, size: b.table!.size, bold: ri === 0 }])),
+          row.map((text) => toItems([{ text, size: b.table!.size, bold: ri === 0 && b.table!.header.length > 0 }])),
         )
       : [],
   );
@@ -191,16 +191,19 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
     const colW = t.columns.map((f) => f * CONTENT_W);
     const lineH = t.size * LINE_HEIGHT;
     const rows = cells.map((row) => row.map((items, c) => wrap(items, () => colW[c] - CELL_PAD * 2)));
-    const heightOf = (lines: Line[][]) => Math.max(...lines.map((l) => l.length)) * lineH + CELL_PAD * 2;
+    const heightOf = (lines: Line[][], header: boolean) =>
+      Math.max(Math.max(...lines.map((l) => l.length)) * lineH + CELL_PAD * 2, header ? 0 : (t.rowHeight ?? 0));
     const drawRow = (lines: Line[][], header: boolean) => {
-      const h = heightOf(lines);
+      const h = heightOf(lines, header);
       let x = MARGIN_X;
       lines.forEach((cellLines, c) => {
         page!.drawRectangle({ x, y: y - h, width: colW[c], height: h, borderColor: rgb(0, 0, 0), borderWidth: 0.5 });
-        let cy = y - CELL_PAD;
+        // 置中的內容列也垂直置中
+        const textH = cellLines.length * lineH;
+        let cy = header || !t.center ? y - CELL_PAD : y - (h - textH) / 2;
         for (const line of cellLines) {
           const baseline = cy - (lineH - t.size) / 2 - t.size * 0.86;
-          const lx = header ? x + (colW[c] - line.width) / 2 : x + CELL_PAD;
+          const lx = header || t.center ? x + (colW[c] - line.width) / 2 : x + CELL_PAD;
           drawLine(page!, line, lx, baseline);
           cy -= lineH;
         }
@@ -208,14 +211,16 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
       });
       y -= h;
     };
-    const [head, ...body] = rows;
+    const head = t.header.length ? rows[0] : null;
+    const body = rows.slice(1);
     if (y < PAGE_H - MARGIN_Y) y -= spaceBefore;
-    if (y - heightOf(head) - (body[0] ? heightOf(body[0]) : 0) < bottom) newPage();
-    drawRow(head, true);
+    const headH = head ? heightOf(head, true) : 0;
+    if (y - headH - (body[0] ? heightOf(body[0], false) : 0) < bottom) newPage();
+    if (head) drawRow(head, true);
     for (const r of body) {
-      if (y - heightOf(r) < bottom) {
+      if (y - heightOf(r, false) < bottom) {
         newPage();
-        drawRow(head, true);
+        if (head) drawRow(head, true);
       }
       drawRow(r, false);
     }

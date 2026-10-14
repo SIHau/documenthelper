@@ -105,6 +105,7 @@ function motionSample(): OfficialDocument {
   const d = { ...sample(), type: '議案關係文書' as const };
   d.subject = '本會議員王小明等三人，擬具「學生會組織章程」修正草案，是否有當？敬請公決。';
   d.motion = {
+    ...d.motion,
     term: '十四',
     proposer: '王小明',
     cosigners: '王中明、王大明 林大明 林小明，陳大明',
@@ -208,5 +209,71 @@ describe('buildDocx', () => {
     const footer = await zip.file(footers[0])!.async('string');
     expect(footer).toContain('NUMPAGES');
     expect(footer).toContain('第 ');
+  });
+});
+
+describe('學生議會表格類文書', () => {
+  const texts = (d: OfficialDocument) => buildBlocks(d).map((b) => b.runs.map((r) => r.text).join(''));
+
+  it('審查報告對照表 has one column per proposal', () => {
+    const d = emptyDocument('審查報告對照表');
+    d.motion = {
+      ...d.motion,
+      draftTitle: '議事規則部分條文修正草案',
+      reviewer: '法制委員會',
+      proposalNames: ['王小明等三人', '', '甲黨團'],
+      rows: [{ id: 'a', amended: '第一條　甲。', proposals: ['第一條　乙。', '', '第一條　丙。'], current: '第一條　丁。', reason: '說明。' }],
+    };
+    const blocks = buildBlocks(d);
+    expect(texts(d).slice(0, 2)).toEqual(['議事規則部分條文修正草案', '審查報告對照表']);
+    const t = blocks.find((b) => b.table)!.table!;
+    expect(t.header).toEqual(['法制委員會\n通過條文', '王小明等三人提案', '甲黨團提案', '現行條文', '說明']);
+    expect(t.rows).toEqual([['第一條　甲。', '第一條　乙。', '', '第一條　丁。', '說明。']]);
+  });
+
+  it('糾正案 lists 壹貳參 and the proposing members', () => {
+    const d = { ...emptyDocument('糾正案'), recipient: { name: '學生會' }, subject: '未依法公告。' };
+    d.explanation = [newItem(0, '事實一。')];
+    d.motion = { ...d.motion, proposer: '王小明', cosigners: '李大華 陳小美' };
+    const t = texts(d);
+    expect(t).toEqual(expect.arrayContaining(['糾　正　案　文', '壹、被糾正機關：學生會', '貳、案　　　由：未依法公告。', '一、事實一。', '提案議員：王小明、李大華、陳小美']));
+  });
+
+  it('會議紀錄 prints sections and each case', () => {
+    const d = { ...emptyDocument('會議紀錄'), sender: { name: '學生聯合自治會' } };
+    d.meeting = { ...d.meeting, reason: '學生議會第十五屆第一次常會', recorder: '陳小美' };
+    d.minutes = {
+      ...d.minutes,
+      opening: '12:20',
+      cases: [{ id: 'c', proposer: '法制委員會', subject: '審議預算。', explanation: '甲。\n乙。', resolution: '照案通過。' }],
+    };
+    const t = texts(d);
+    expect(t.slice(0, 2)).toEqual(['學生聯合自治會', '學生議會第十五屆第一次常會會議紀錄']);
+    expect(t).toEqual(expect.arrayContaining(['記錄人員：陳小美', '壹、主席宣布開會（12:20）', '無。', '確認。', '【第一案】', '提 案 人：法制委員會', '一、甲。', '二、乙。', '照案通過。', '伍、臨時動議']));
+  });
+
+  it('簽到表 puts attendee names above blank signature rows', () => {
+    const d = { ...emptyDocument('簽到表'), sender: { name: '學生議會' } };
+    d.meeting = { ...d.meeting, reason: '常會', attendees: '甲 乙 丙' };
+    const blocks = buildBlocks(d);
+    expect(texts(d)).toContain('應到：3人');
+    const [grid, observers] = blocks.filter((b) => b.table).map((b) => b.table!);
+    expect(grid.header).toEqual([]);
+    expect(grid.rows[0].slice(0, 4)).toEqual(['甲', '乙', '丙', '']);
+    expect(grid.rows[1].every((c) => c === '')).toBe(true);
+    expect(observers.header[0]).toContain('列席人員');
+  });
+
+  it('exports header-less tables to ODT and DOCX', async () => {
+    const d = { ...emptyDocument('簽到表'), sender: { name: '學生議會' } };
+    const content = await (await JSZip.loadAsync(await buildOdt(d))).file('content.xml')!.async('string');
+    const errors: string[] = [];
+    new DOMParser({ onError: (_l: string, m: string) => errors.push(m) }).parseFromString(content, 'text/xml');
+    expect(errors).toEqual([]);
+    expect(content).toContain('style:min-row-height="22pt"');
+    const docx = await JSZip.loadAsync(await (await buildDocx(d)).arrayBuffer());
+    const xml = await docx.file('word/document.xml')!.async('string');
+    expect(xml).toContain('w:hRule="atLeast"');
+    expect(xml).toMatch(/<\/w:tbl><w:p\b[^>]*\/?>(?:(?!<w:tbl>).)*<w:sectPr/s);
   });
 });
