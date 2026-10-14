@@ -20,9 +20,13 @@ button:disabled { opacity: .4; cursor: default; }
 .amendment-row { border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 8px; }
 .amendment-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .amendment-head .outline-actions { width: auto; }
-.page { background: #fff; width: 210mm; min-height: 297mm; margin: 12px auto; padding: 25mm 20mm;
+.page { position: relative; background: #fff; width: 210mm; min-height: 297mm; margin: 12px auto; padding: 25mm var(--mx, 20mm);
   font-family: "標楷體", "DFKai-SB", "BiauKai", serif; font-size: 16pt; line-height: 1.6; box-shadow: 0 1px 6px rgba(0,0,0,.2); }
 .pv-p { margin: 0; white-space: pre-wrap; word-break: break-all; }
+.pv-binding { position: absolute; left: 15mm; top: 25mm; bottom: 20mm; border-left: 1px dotted #000;
+  display: flex; flex-direction: column; justify-content: space-evenly; font-size: 10pt; }
+.pv-binding span { margin-left: -0.5em; background: #fff; line-height: 1; }
+@media (max-width: 900px) { .pv-binding { display: none; } }
 .pv-header { margin: -10mm 0 6mm; text-align: center; font-size: 12pt; }
 .pv-table { width: 100%; border-collapse: collapse; table-layout: fixed; line-height: 1.6; }
 .pv-table th, .pv-table td { border: 0.5pt solid #000; padding: 4pt; vertical-align: top; text-align: left; white-space: pre-wrap; word-break: break-all; }
@@ -77,6 +81,9 @@ button:disabled { opacity: .4; cursor: default; }
 .edit-box .row-actions { grid-column: 1 / -1; }
 .with-picker { display: flex; gap: 6px; }
 .with-picker input { flex: 1; }
+.docnum select { flex: none; width: 7.5em; }
+.docnum button { flex: none; white-space: nowrap; }
+.grid .field:has(.docnum) { grid-column: 1 / -1; }
 .picker { width: auto; }
 .backup { margin-top: 18px; }
 .backup summary { cursor: pointer; font-weight: 600; }

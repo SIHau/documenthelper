@@ -45,19 +45,19 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
 
   // 必填欄位
   if (cfg.letterhead && !hasText(doc.sender.name)) add('sender', 'error', '發文機關', '尚未填寫發文機關。');
-  if (cfg.recipient && !hasText(doc.recipient.name)) {
+  if (cfg.recipient && cfg.recipientRequired && !hasText(doc.recipient.name)) {
     add('recipient', 'error', cfg.recipientLabel, `尚未填寫${cfg.recipientLabel}。`);
   }
   if (cfg.letterhead && !toMinguoText(doc.date)) add('date', 'error', cfg.dateLabel, `${cfg.dateLabel}格式不正確。`);
-  if (cfg.subject && !hasText(doc.subject)) add('subject-empty', 'error', cfg.subjectLabel, `尚未填寫${cfg.subjectLabel}。`);
+  if (cfg.subject && cfg.subjectRequired && !hasText(doc.subject)) add('subject-empty', 'error', cfg.subjectLabel, `尚未填寫${cfg.subjectLabel}。`);
+  if (cfg.subject && !cfg.subjectRequired && !hasText(doc.subject) && !doc.explanation.some((i) => hasText(i.text))) {
+    add('body-empty', 'error', '本文', '尚未填寫主旨或本文。');
+  }
   if (cfg.docNumber && !hasText(doc.docNumber)) add('docnum', 'info', '發文字號', '尚未填寫發文字號。');
   if (cfg.meeting) {
     if (!hasText(doc.meeting.reason)) add('m-reason', 'error', '開會事由', '尚未填寫開會事由。');
     if (!hasText(doc.meeting.time)) add('m-time', 'error', '開會時間', '尚未填寫開會時間。');
     if (!hasText(doc.meeting.place)) add('m-place', 'error', '開會地點', '尚未填寫開會地點。');
-  }
-  if (doc.type === '公告' && !doc.measures.some((i) => hasText(i.text))) {
-    add('announce', 'error', '公告事項', '尚未填寫公告事項。');
   }
   if (doc.type === '簽' && !doc.measures.some((i) => hasText(i.text))) {
     add('plan', 'warn', '擬辦', '簽通常需寫明擬辦事項。');

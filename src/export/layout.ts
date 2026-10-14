@@ -1,5 +1,5 @@
 import type { OfficialDocument } from '../model/types';
-import { numberItems } from '../model/numbering';
+import { formatLabel, numberItems } from '../model/numbering';
 import { toMinguoText } from '../model/date';
 import { DOC_TYPES } from '../model/docTypes';
 
@@ -135,103 +135,195 @@ function buildMotionBlocks(doc: OfficialDocument): Block[] {
   return blocks;
 }
 
+/** 函頭各列字級（依學生議會樣張）：標題 20pt、檔號 10pt、聯絡資訊與發文日期等 12pt */
+const TITLE_SIZE = 20;
+const ARCHIVE_SIZE = 10;
+const SMALL_SIZE = 12;
+
+/** 函頭類文件每頁頁尾印「第 X 頁 共 Y 頁」 */
+export function hasPageNumbers(doc: OfficialDocument): boolean {
+  return DOC_TYPES[doc.type].letterhead;
+}
+
+/** 第一頁左側的裝訂線 */
+export function hasBindingLine(doc: OfficialDocument): boolean {
+  return DOC_TYPES[doc.type].filing;
+}
+
+/** 左右邊界（cm）：函頭類依樣張 2.5 cm，其餘 2 cm */
+export function marginXcm(doc: OfficialDocument): number {
+  return DOC_TYPES[doc.type].letterhead ? 2.5 : 2;
+}
+
+/** 頁尾文字的組成：第 {page} 頁 共 {total} 頁 */
+export const PAGE_NUMBER_PARTS = ['第 ', ' 頁 共 ', ' 頁'] as const;
+
+/** 分項內容：一、(一)… 凸排；label 為 null 時不加段落標題 */
+function outlineBlocks(label: string | null, items: OfficialDocument['explanation'], spaceBefore = 12, base = 0): Block[] {
+  const numbered = numberItems(items).filter((it) => it.text.trim());
+  if (!numbered.length) return [];
+  const out: Block[] = [];
+  if (label) out.push({ runs: [{ text: label + '：' }], spaceBefore });
+  numbered.forEach((it, i) => {
+    const w = labelWidthEm(it.label);
+    out.push({
+      runs: [{ text: it.label + it.text }],
+      indentEm: base + it.level * 2 + w,
+      hangingEm: w,
+      spaceBefore: !label && i === 0 ? spaceBefore : undefined,
+    });
+  });
+  return out;
+}
+
+/** 開會通知單第二頁：議程標題、開會時間地點、報告事項、討論事項 */
+function agendaBlocks(doc: OfficialDocument): Block[] {
+  const titles = doc.meeting.agenda.split('\n').map((t) => t.trim()).filter(Boolean);
+  const sections = ([
+    ['報告事項', doc.explanation],
+    ['討論事項', doc.measures],
+  ] as const).filter(([, items]) => items.some((it) => it.text.trim()));
+  if (!titles.length && !sections.length) return [];
+  const blocks: Block[] = (titles.length ? titles : ['議程']).map((t, i) => ({
+    runs: [{ text: t, bold: true, size: 18 }],
+    align: 'center',
+    pageBreakBefore: i === 0,
+  }));
+  const rows: Array<[string, string]> = [
+    ['開會時間', doc.meeting.time],
+    ['開會地點', doc.meeting.place],
+  ];
+  rows.filter(([, v]) => v).forEach(([k, v], i) => {
+    blocks.push({ runs: [{ text: `${k}：${v}`, size: 14 }], indentEm: 4, spaceBefore: i === 0 ? 8 : 0 });
+  });
+  for (const [label, items] of sections) {
+    blocks.push({ runs: [{ text: label, bold: true }], indentEm: 2, spaceBefore: 18 });
+    blocks.push(...outlineBlocks(null, items, 6));
+  }
+  return blocks;
+}
+
 export function buildBlocks(doc: OfficialDocument): Block[] {
   const cfg = DOC_TYPES[doc.type];
   if (cfg.motion) return buildMotionBlocks(doc);
   const blocks: Block[] = [];
   const line = (text: string, extra: Partial<Block> = {}, run: Partial<Run> = {}) =>
     blocks.push({ runs: [{ text, ...run }], ...extra });
-  const row = (label: string, value: string, spaceBefore = 0) => {
-    if (value) line(`${label}：${value}`, { spaceBefore });
+  const row = (label: string, value: string, spaceBefore = 0, size?: number) => {
+    if (value) line(`${label}：${value}`, { spaceBefore }, { size });
+  };
+  const rows = (list: Array<[string, string]>, spaceBefore: number, size?: number) => {
+    let first = true;
+    for (const [k, v] of list) {
+      if (!v) continue;
+      row(k, v, first ? spaceBefore : 0, size);
+      first = false;
+    }
   };
 
-  line(`${doc.sender.name || '（發文機關）'}　${doc.type}`, { align: 'center' }, { bold: true, size: 22 });
+  // 右上角檔號、保存年限（10pt，左緣對齊）
+  if (cfg.filing) {
+    line(`檔　　號：${doc.archive.fileNo}`, { indentEm: 20 }, { size: ARCHIVE_SIZE });
+    line(`保存年限：${doc.archive.retention}`, { indentEm: 20 }, { size: ARCHIVE_SIZE });
+  }
+
+  line(`${doc.sender.name || '（發文機關）'}　${doc.type}`, { align: 'center', spaceBefore: cfg.filing ? 4 : 0 }, { size: TITLE_SIZE });
 
   const contact: Array<[string, string]> = [
     ['地址', doc.senderAddress],
     ['承辦人', doc.contact.person],
     ['連絡電話', doc.contact.phone],
-    ['電子信箱', doc.contact.email],
+    ['電子郵件', doc.contact.email],
     ['傳真', doc.contact.fax],
   ];
   let first = true;
   for (const [k, v] of contact) {
     if (!v) continue;
-    line(`${k}：${v}`, { align: 'right', spaceBefore: first ? 6 : 0 }, { size: 12 });
+    line(`${k}：${v}`, { align: 'right', spaceBefore: first ? 2 : 0 }, { size: SMALL_SIZE });
     first = false;
   }
 
-  const head: Array<[string, string]> = [];
-  if (cfg.recipient && !cfg.recipientAtEnd) head.push([cfg.recipientLabel, doc.recipient.name || '（受文者）']);
-  head.push([cfg.dateLabel, toMinguoText(doc.date)]);
+  const recipient = doc.recipient.name || (cfg.recipientRequired ? '（受文者）' : '');
+  const showRecipient = cfg.recipient && !cfg.recipientAtEnd && recipient;
+  if (showRecipient && !cfg.recipientAfterHead) row(cfg.recipientLabel, recipient, 18);
+
+  const head: Array<[string, string]> = [[cfg.dateLabel, toMinguoText(doc.date)]];
   if (cfg.docNumber) head.push(['發文字號', doc.docNumber]);
   if (cfg.urgencySecrecy) {
     head.push(['速別', doc.urgency]);
     head.push(['密等及解密條件或保密期限', doc.secrecy]);
   }
   head.push(['附件', doc.attachments]);
-  let firstHead = true;
-  for (const [k, v] of head) {
-    if (!v) continue;
-    row(k, v, firstHead ? 12 : 0);
-    firstHead = false;
-  }
+  rows(head, 12, SMALL_SIZE);
+
+  if (showRecipient && cfg.recipientAfterHead) row(cfg.recipientLabel, recipient, 24);
 
   if (cfg.meeting) {
     const m = doc.meeting;
-    const rows: Array<[string, string]> = [
-      ['開會事由', m.reason],
-      ['開會時間', m.time],
-      ['開會地點', m.place],
-      ['主持人', m.chair],
-      ['聯絡人及電話', m.contact],
-      ['出席者', m.attendees],
-      ['列席者', m.observers],
-      ['備註', m.remarks],
-    ];
-    let firstMeeting = true;
-    for (const [k, v] of rows) {
-      if (!v) continue;
-      row(k, v, firstMeeting ? 12 : 0);
-      firstMeeting = false;
+    rows(
+      [
+        ['開會事由', m.reason],
+        ['開會時間', m.time],
+        ['開會地點', m.place],
+        ['主持人', m.chair],
+        ['聯絡人及電話', m.contact],
+      ],
+      18,
+    );
+    rows(
+      [
+        ['出席者', m.attendees],
+        ['列席者', m.observers],
+      ],
+      12,
+      SMALL_SIZE,
+    );
+    const remarks = m.remarks.split('\n').map((r) => r.trim()).filter(Boolean);
+    if (remarks.length) {
+      line('備註：', { spaceBefore: 12 });
+      remarks.forEach((r, i) => {
+        const label = formatLabel(0, i + 1);
+        const w = labelWidthEm(label);
+        line(label + r, { indentEm: 2 + w, hangingEm: w });
+      });
     }
   }
 
-  if (cfg.subject) {
+  const hasSubject = cfg.subject && (cfg.subjectRequired || doc.subject.trim());
+  if (hasSubject) {
     blocks.push({
-      runs: [{ text: `${cfg.subjectLabel}：`, bold: true }, { text: doc.subject || `（請填寫${cfg.subjectLabel}）` }],
-      spaceBefore: 12,
+      runs: [{ text: `${cfg.subjectLabel}：` }, { text: doc.subject || `（請填寫${cfg.subjectLabel}）` }],
+      indentEm: 3,
+      hangingEm: 3,
+      spaceBefore: 18,
     });
   }
 
-  const outline = (title: string | null, items: OfficialDocument['explanation']) => {
-    if (!title) return;
-    const numbered = numberItems(items).filter((it) => it.text.trim());
-    if (!numbered.length) return;
-    line(title + '：', { spaceBefore: 12 }, { bold: true });
-    for (const it of numbered) {
-      const w = labelWidthEm(it.label);
-      blocks.push({ runs: [{ text: it.label + it.text }], indentEm: it.level * 2 + w, hangingEm: w });
+  if (!cfg.meeting) {
+    // 令沒有主旨時，本文直接書寫，不加「說明」
+    const bare = cfg.subject && !hasSubject;
+    const body = doc.explanation.filter((it) => it.text.trim());
+    if (bare && body.length === 1) {
+      line(body[0].text, { spaceBefore: 18 });
+    } else {
+      blocks.push(...outlineBlocks(bare ? null : cfg.explanationLabel, doc.explanation, bare ? 18 : 0, 1));
     }
-  };
-  outline(cfg.explanationLabel, doc.explanation);
-  outline(cfg.measuresLabel, doc.measures);
+    blocks.push(...outlineBlocks(cfg.measuresLabel, doc.measures, 0, 1));
+  }
 
   if (cfg.recipient && cfg.recipientAtEnd && doc.recipient.name) {
     line(`${cfg.recipientLabel}　${doc.recipient.name}`, { spaceBefore: 12 });
   }
 
   if (cfg.routing) {
-    const routes: Array<[string, string]> = [
-      ['正本', doc.primaryRecipients],
-      ['副本', doc.ccRecipients],
-    ];
-    let firstRoute = true;
-    for (const [k, v] of routes) {
-      if (!v) continue;
-      row(k, v, firstRoute ? 24 : 0);
-      firstRoute = false;
-    }
+    rows(
+      [
+        ['正本', doc.primaryRecipients],
+        ['副本', doc.ccRecipients],
+      ],
+      24,
+      SMALL_SIZE,
+    );
   }
 
   const { signature: s } = doc;
@@ -239,7 +331,7 @@ export function buildBlocks(doc: OfficialDocument): Block[] {
     const font = SIGNATURE_FONTS[s.font];
     blocks.push({
       runs: [
-        { text: s.title, size: 22, color: SIGNATURE_COLOR, font },
+        { text: s.title, size: s.name ? 22 : 26, color: SIGNATURE_COLOR, font },
         { text: s.title && s.name ? '　' : '', size: 22, font },
         { text: s.name, size: 44, color: SIGNATURE_COLOR, font },
       ],
@@ -247,6 +339,8 @@ export function buildBlocks(doc: OfficialDocument): Block[] {
       spaceBefore: 48,
     });
   }
+
+  if (cfg.meeting) blocks.push(...agendaBlocks(doc));
   return blocks;
 }
 

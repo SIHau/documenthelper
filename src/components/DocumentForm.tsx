@@ -6,12 +6,15 @@ import { AgencyPicker } from './AgencyPicker';
 import { OutlineEditor } from './OutlineEditor';
 import { DraftTableEditor } from './DraftTableEditor';
 import { confirmDialog } from '../dialogs';
+import { COUNCIL_WORDS, defaultWord, nextDocNumber } from '../model/docNumber';
 
 interface Props {
   doc: OfficialDocument;
   agencies: Agency[];
   onChange: (doc: OfficialDocument) => void;
   onReset: () => void;
+  /** 已存稿件的發文字號，用來推算當日流水號 */
+  usedNumbers: string[];
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -31,10 +34,11 @@ const MEETING_FIELDS: Array<[keyof OfficialDocument['meeting'], string, boolean]
   ['contact', '聯絡人及電話', false],
   ['attendees', '出席者', true],
   ['observers', '列席者', true],
-  ['remarks', '備註', true],
+  ['remarks', '備註（每行一點）', true],
+  ['agenda', '議程標題（每行一列，另起一頁；可留空）', true],
 ];
 
-export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
+export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: Props) {
   const findAgency = (name: string) => agencies.find((a) => a.name === name.trim());
   /** 發文機關：名稱完全符合通訊錄時，帶入代碼、地址與聯絡資料（只補空白欄位） */
   const changeSender = (name: string) => {
@@ -59,6 +63,9 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
     onChange({ ...doc, motion: { ...doc.motion, [key]: value } });
   const setMeeting = (key: keyof OfficialDocument['meeting'], value: string) =>
     onChange({ ...doc, meeting: { ...doc.meeting, [key]: value } });
+  const setArchive = (key: keyof OfficialDocument['archive'], value: string) =>
+    onChange({ ...doc, archive: { ...doc.archive, [key]: value } });
+  const docWord = /^(.+?字)第/.exec(doc.docNumber)?.[1] ?? defaultWord(doc.type, doc.sender.name);
   const setSignature = <K extends keyof OfficialDocument['signature']>(
     key: K,
     value: OfficialDocument['signature'][K],
@@ -120,9 +127,30 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
           )}
           {cfg.docNumber && (
             <Field label="發文字號">
-              <input value={doc.docNumber} placeholder="例：府授字第1140001234號"
-                onChange={(e) => set('docNumber', e.target.value)} />
+              <span className="with-picker docnum">
+                <input value={doc.docNumber} placeholder="例：議字第1151014001號"
+                  onChange={(e) => set('docNumber', e.target.value)} />
+                <select aria-label="字別" value={(COUNCIL_WORDS as readonly string[]).includes(docWord) ? docWord : ''}
+                  onChange={(e) => e.target.value && set('docNumber', nextDocNumber(e.target.value, doc.date, usedNumbers))}>
+                  <option value="">產生字號…</option>
+                  {COUNCIL_WORDS.map((w) => <option key={w} value={w}>{w}</option>)}
+                </select>
+                <button type="button" title="依字別、發文日期與當日已用字號產生下一號"
+                  onClick={() => set('docNumber', nextDocNumber(docWord, doc.date, usedNumbers))}>
+                  產生
+                </button>
+              </span>
             </Field>
+          )}
+          {cfg.filing && (
+            <>
+              <Field label="檔號（選填）">
+                <input value={doc.archive.fileNo} onChange={(e) => setArchive('fileNo', e.target.value)} />
+              </Field>
+              <Field label="保存年限（選填）">
+                <input value={doc.archive.retention} onChange={(e) => setArchive('retention', e.target.value)} />
+              </Field>
+            </>
           )}
         </div>
       </fieldset>
@@ -150,7 +178,7 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
             <input type="tel" value={doc.contact.phone}
               onChange={(e) => setContact('phone', e.target.value)} />
           </Field>
-          <Field label="電子信箱">
+          <Field label="電子郵件">
             <input type="email" value={doc.contact.email}
               onChange={(e) => setContact('email', e.target.value)} />
           </Field>
@@ -159,7 +187,7 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
               onChange={(e) => setContact('fax', e.target.value)} />
           </Field>
           {cfg.recipient && (
-            <Field label={cfg.recipientLabel}>
+            <Field label={cfg.recipientRequired ? cfg.recipientLabel : `${cfg.recipientLabel}（可留空）`}>
               <input value={doc.recipient.name} list="agency-list"
                 onChange={(e) => changeRecipient(e.target.value)} />
             </Field>
@@ -185,7 +213,7 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
 
       {cfg.subject && (
         <fieldset>
-          <legend>{cfg.subjectLabel}</legend>
+          <legend>{cfg.subjectLabel}{cfg.subjectRequired ? '' : '（可留空，本文直接寫在下方）'}</legend>
           <textarea rows={3} value={doc.subject}
             placeholder={cfg.motion ? '例：本會議員○○○等三人，鑒於…，擬具「○○○」修正草案，是否有當？敬請公決。' : '簡明扼要，一段完成，不分項'}
             onChange={(e) => set('subject', e.target.value.replace(/\n/g, ''))} />
@@ -194,14 +222,14 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
 
       {cfg.explanationLabel && (
         <fieldset>
-          <legend>{cfg.explanationLabel}</legend>
+          <legend>{cfg.meeting ? `議程：${cfg.explanationLabel}（可留空）` : cfg.explanationLabel}</legend>
           <OutlineEditor items={doc.explanation} onChange={(v) => set('explanation', v)} />
         </fieldset>
       )}
 
       {cfg.measuresLabel && (
         <fieldset>
-          <legend>{cfg.measuresLabel}（可留空）</legend>
+          <legend>{cfg.meeting ? '議程：' : ''}{cfg.measuresLabel}（可留空）</legend>
           <OutlineEditor items={doc.measures} onChange={(v) => set('measures', v)} />
         </fieldset>
       )}

@@ -34,7 +34,8 @@ export function emptyDocument(type: OfficialDocument['type'] = '函'): OfficialD
     primaryRecipients: '',
     ccRecipients: '',
     signature: { enabled: true, title: '', name: '', font: 'yuji-boku' },
-    meeting: { reason: '', time: '', place: '', chair: '', contact: '', attendees: '', observers: '', remarks: '' },
+    archive: { fileNo: '', retention: '' },
+    meeting: { reason: '', time: '', place: '', chair: '', contact: '', attendees: '', observers: '', remarks: '', agenda: '' },
     motion: { term: '', proposer: '', cosigners: '', draftTitle: '', mode: '修正', rows: [newAmendmentRow()] },
   };
 }

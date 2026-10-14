@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { OfficialDocument } from '../model/types';
-import { buildBlocks, pageHeader } from '../export/layout';
+import { buildBlocks, hasBindingLine, marginXcm, pageHeader } from '../export/layout';
 import type { Block, Run, Table } from '../export/layout';
 
 function runStyle(r: Run): CSSProperties {
@@ -18,6 +18,8 @@ function blockStyle(b: Block): CSSProperties {
     marginLeft: b.indentEm ? `${b.indentEm}em` : undefined,
     textIndent: b.hangingEm ? `-${b.hangingEm}em` : undefined,
     marginTop: b.spaceBefore ? `${b.spaceBefore}pt` : undefined,
+    // 整段都是小字（如檔號、發文日期）時，行高跟著縮小
+    fontSize: b.runs.every((r) => r.size && r.size < 16) ? `${Math.max(...b.runs.map((r) => r.size!))}pt` : undefined,
   };
 }
 
@@ -42,6 +44,8 @@ function PreviewTable({ table, spaceBefore }: { table: Table; spaceBefore?: numb
 /** 預覽與匯出共用同一份版面資料，確保所見即所得；遇到分頁區塊就另起一張紙 */
 export function Preview({ doc }: { doc: OfficialDocument }) {
   const header = pageHeader(doc);
+  const binding = hasBindingLine(doc);
+  const pad = { '--mx': `${marginXcm(doc) * 10}mm` } as CSSProperties;
   const pages: Block[][] = [[]];
   for (const b of buildBlocks(doc)) {
     if (b.pageBreakBefore && pages[pages.length - 1].length) pages.push([]);
@@ -50,7 +54,10 @@ export function Preview({ doc }: { doc: OfficialDocument }) {
   return (
     <>
       {pages.map((blocks, pi) => (
-        <article className="page" key={pi}>
+        <article className="page" key={pi} style={pad}>
+          {binding && pi === 0 && (
+            <div className="pv-binding" aria-hidden="true"><span>裝</span><span>訂</span><span>線</span></div>
+          )}
           {header && <p className="pv-header">{header}</p>}
           {blocks.map((b, i) => b.table ? (
             <PreviewTable key={i} table={b.table} spaceBefore={b.spaceBefore} />

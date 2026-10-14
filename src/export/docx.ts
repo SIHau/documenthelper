@@ -1,6 +1,6 @@
-import { AlignmentType, BorderStyle, Document, Header, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
+import { AlignmentType, BorderStyle, Document, Footer, Header, PageNumber, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
 import type { OfficialDocument } from '../model/types';
-import { BODY_FONT, BODY_SIZE, buildBlocks, pageHeader } from './layout';
+import { BODY_FONT, BODY_SIZE, PAGE_NUMBER_PARTS, buildBlocks, hasPageNumbers, marginXcm, pageHeader } from './layout';
 import type { Block, Table as TableSpec } from './layout';
 
 const ALIGN = {
@@ -11,8 +11,7 @@ const ALIGN = {
 
 /** 1em（以本文 16pt 計）= 320 twips */
 const EM_TWIPS = BODY_SIZE * 20;
-/** A4 寬 11906 twips 減去左右邊界 */
-const CONTENT_TWIPS = 11906 - 1134 * 2;
+const CM_TWIPS = 567;
 const LINE = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
 
 function paragraph(b: Block): Paragraph {
@@ -56,10 +55,10 @@ function cell(text: string, width: number, size: number, header: boolean): Table
   });
 }
 
-function table(t: TableSpec): Table {
-  const widths = t.columns.map((f) => Math.round(f * CONTENT_TWIPS));
+function table(t: TableSpec, contentTwips: number): Table {
+  const widths = t.columns.map((f) => Math.round(f * contentTwips));
   return new Table({
-    width: { size: CONTENT_TWIPS, type: WidthType.DXA },
+    width: { size: contentTwips, type: WidthType.DXA },
     columnWidths: widths,
     borders: { top: LINE, bottom: LINE, left: LINE, right: LINE, insideHorizontal: LINE, insideVertical: LINE },
     rows: [t.header, ...t.rows].map(
@@ -73,13 +72,15 @@ function table(t: TableSpec): Table {
 }
 
 /** 表格前的段前距以空段落表示 */
-function nodes(b: Block): Array<Paragraph | Table> {
+function nodes(b: Block, contentTwips: number): Array<Paragraph | Table> {
   if (!b.table) return [paragraph(b)];
-  return [new Paragraph({ spacing: { before: (b.spaceBefore ?? 0) * 20, line: 240 }, children: [] }), table(b.table)];
+  return [new Paragraph({ spacing: { before: (b.spaceBefore ?? 0) * 20, line: 240 }, children: [] }), table(b.table, contentTwips)];
 }
 
 export async function buildDocx(doc: OfficialDocument): Promise<Blob> {
   const headerText = pageHeader(doc);
+  const mx = Math.round(marginXcm(doc) * CM_TWIPS);
+  const contentTwips = 11906 - mx * 2;
   const file = new Document({
     title: doc.subject,
     creator: 'documenthelper',
@@ -101,13 +102,28 @@ export async function buildDocx(doc: OfficialDocument): Promise<Blob> {
               }),
             }
           : undefined,
+        footers: hasPageNumbers(doc)
+          ? {
+              default: new Footer({
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    // 每段各自設字級，頁碼欄位才不會沿用本文 16pt
+                    children: [PAGE_NUMBER_PARTS[0], PageNumber.CURRENT, PAGE_NUMBER_PARTS[1], PageNumber.TOTAL_PAGES, PAGE_NUMBER_PARTS[2]].map(
+                      (part) => new TextRun({ size: 20, children: [part] }),
+                    ),
+                  }),
+                ],
+              }),
+            }
+          : undefined,
         properties: {
           page: {
             size: { width: 11906, height: 16838 },
-            margin: { top: 1418, bottom: 1418, left: 1134, right: 1134, header: 851 },
+            margin: { top: 1418, bottom: 1418, left: mx, right: mx, header: 851, footer: 680 },
           },
         },
-        children: buildBlocks(doc).flatMap(nodes),
+        children: buildBlocks(doc).flatMap((b) => nodes(b, contentTwips)),
       },
     ],
   });

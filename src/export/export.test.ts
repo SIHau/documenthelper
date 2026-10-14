@@ -39,11 +39,12 @@ describe('buildBlocks', () => {
 describe('buildBlocks per doc type', () => {
   const texts = (d: OfficialDocument) => buildBlocks(d).map((b) => b.runs.map((r) => r.text).join(''));
 
-  it('公告 has 依據/公告事項 and no 受文者', () => {
+  it('公告 has 主旨/依據/說明 and no 受文者 or 檔號 (council template)', () => {
     const d = { ...sample(), type: '公告' as const, measures: [newItem(0, '公告內容。')] };
     const t = texts(d);
     expect(t).toContain('依據：');
-    expect(t).toContain('公告事項：');
+    expect(t).toContain('說明：');
+    expect(t.some((x) => x.startsWith('檔　　號'))).toBe(false);
     expect(t.some((x) => x.startsWith('受文者'))).toBe(false);
     expect(t[0]).toContain('公告');
   });
@@ -63,6 +64,40 @@ describe('buildBlocks per doc type', () => {
     const t = texts(d);
     expect(t).toEqual(expect.arrayContaining(['開會事由：討論選舉', '開會時間：114年4月1日', '開會地點：會議室']));
     expect(t.some((x) => x.startsWith('主旨'))).toBe(false);
+  });
+
+  it('開會通知單 numbers 備註 and puts the agenda on a new page', () => {
+    const d = { ...sample(), type: '開會通知單' as const };
+    d.meeting = { ...d.meeting, time: '114年4月1日', place: '會議室', remarks: '不印紙本。\n準時出席。', agenda: '第十五屆學生議會\n法制委員會第一次會議' };
+    d.explanation = [newItem(0, '主席報告。')];
+    d.measures = [newItem(0, '審查預算案。')];
+    const blocks = buildBlocks(d);
+    const t = texts(d);
+    expect(t).toEqual(expect.arrayContaining(['備註：', '一、不印紙本。', '二、準時出席。']));
+    const agenda = blocks.findIndex((b) => b.pageBreakBefore);
+    expect(t[agenda]).toBe('第十五屆學生議會');
+    expect(t.slice(agenda)).toEqual(expect.arrayContaining(['報告事項', '一、主席報告。', '討論事項', '一、審查預算案。', '開會地點：會議室']));
+    expect(agenda).toBeGreaterThan(t.findIndex((x) => x.includes('侯承佑') && x.includes('學生議員')));
+  });
+
+  it('函 follows the council letterhead: 檔號 box, 20pt title, 12pt head rows', () => {
+    const d = { ...sample(), docNumber: '議字第1140320001號', archive: { fileNo: '114/01', retention: '5年' } };
+    const blocks = buildBlocks(d);
+    const t = texts(d);
+    expect(t.slice(0, 3)).toEqual(['檔　　號：114/01', '保存年限：5年', '學生議會侯承佑議員　函']);
+    expect(blocks[2].runs[0]).toMatchObject({ size: 20 });
+    expect(blocks[t.indexOf('發文字號：議字第1140320001號')].runs[0].size).toBe(12);
+    expect(t.indexOf('受文者：學生選舉委員會')).toBeLessThan(t.indexOf('發文日期：中華民國114年3月20日'));
+  });
+
+  it('令 puts 受文者 after the head rows and prints a bare body without 說明', () => {
+    const d = { ...sample(), type: '令' as const, subject: '', explanation: [newItem(0, '茲任命王小明為秘書長。')] };
+    const t = texts(d);
+    expect(t.indexOf('受文者：學生選舉委員會')).toBeGreaterThan(t.findIndex((x) => x.startsWith('發文日期')));
+    expect(t).toContain('茲任命王小明為秘書長。');
+    expect(t.some((x) => x.startsWith('主旨') || x.startsWith('說明'))).toBe(false);
+    const noRecipient = texts({ ...d, recipient: { name: '' } });
+    expect(noRecipient.some((x) => x.startsWith('受文者'))).toBe(false);
   });
 });
 
@@ -155,6 +190,10 @@ describe('buildOdt', () => {
     expect(content).toContain('&amp; &lt;提供&gt;');
     expect(content).toContain('Yuji Boku');
     expect(content).toContain('<text:line-break/>');
+    const styles = await zip.file('styles.xml')!.async('string');
+    expect(styles).toContain('<text:page-number text:select-page="current">');
+    expect(styles).toContain('<text:page-count>');
+    expect(styles).toContain('fo:margin-left="2.5cm"');
   });
 });
 
@@ -165,5 +204,9 @@ describe('buildDocx', () => {
     const xml = await zip.file('word/document.xml')!.async('string');
     expect(xml).toContain('學生選舉委員會');
     expect(xml).toContain('Yuji Boku');
+    const footers = Object.keys(zip.files).filter((f) => /word\/footer\d*\.xml/.test(f));
+    const footer = await zip.file(footers[0])!.async('string');
+    expect(footer).toContain('NUMPAGES');
+    expect(footer).toContain('第 ');
   });
 });

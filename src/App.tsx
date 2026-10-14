@@ -203,6 +203,7 @@ export function App() {
           agencies={contacts.items}
           onChange={setDoc}
           onReset={() => load(emptyDocument(), null, false)}
+          usedNumbers={drafts.items.filter((d) => d.id !== currentId).map((d) => d.doc.docNumber)}
         />
       </section>
       <section className="pane pane-preview">
