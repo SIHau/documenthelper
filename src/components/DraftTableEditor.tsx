@@ -1,19 +1,27 @@
-import type { AmendmentRow } from '../model/types';
+import type { AmendmentRow, DraftMode } from '../model/types';
 import { newAmendmentRow } from '../model/defaults';
 
 interface Props {
+  mode: DraftMode;
   rows: AmendmentRow[];
   onChange: (rows: AmendmentRow[]) => void;
 }
 
-const COLUMNS: Array<[keyof Omit<AmendmentRow, 'id'>, string, string]> = [
-  ['amended', '修正條文', '新條文全文；刪除條文時留空'],
-  ['current', '現行條文', '現行條文全文；新增條文時留空'],
-  ['reason', '說明', '修正理由'],
-];
+type Column = [keyof Omit<AmendmentRow, 'id'>, string, string];
+const COLUMNS: Record<DraftMode, Column[]> = {
+  修正: [
+    ['amended', '修正條文', '修正後的條文全文；刪除條文時留空'],
+    ['current', '現行條文', '現行條文全文；新增條文時留空'],
+    ['reason', '說明', '修正理由，可分項：一、…'],
+  ],
+  新訂: [
+    ['amended', '條文', '例：第一條　本法依…制定之。'],
+    ['reason', '說明', '立法理由，可分項：一、…'],
+  ],
+};
 
-/** 條文對照表：一列一條，系統自動排成三欄表格 */
-export function AmendmentEditor({ rows, onChange }: Props) {
+/** 草案對照表：一列一條，系統自動排成表格（修正三欄、新訂兩欄） */
+export function DraftTableEditor({ mode, rows, onChange }: Props) {
   const update = (index: number, patch: Partial<AmendmentRow>) =>
     onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   const move = (index: number, delta: number) => {
@@ -42,7 +50,7 @@ export function AmendmentEditor({ rows, onChange }: Props) {
               <button type="button" title="刪除" onClick={() => onChange(rows.filter((_, j) => j !== i))}>✕</button>
             </span>
           </div>
-          {COLUMNS.map(([key, label, placeholder]) => (
+          {COLUMNS[mode].map(([key, label, placeholder]) => (
             <label className="field" key={key}>
               <span>{label}</span>
               <textarea rows={3} value={r[key]} placeholder={placeholder}

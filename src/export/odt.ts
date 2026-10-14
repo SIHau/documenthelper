@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import type { OfficialDocument } from '../model/types';
-import { BODY_FONT, BODY_SIZE, SIGNATURE_FONTS, buildBlocks } from './layout';
+import { BODY_FONT, BODY_SIZE, SIGNATURE_FONTS, buildBlocks, pageHeader } from './layout';
 import type { Block, Run, Table } from './layout';
 
 const esc = (s: string) =>
@@ -110,6 +110,7 @@ function build(blocks: Block[]): { body: string; auto: string } {
         b.indentEm ? `fo:margin-left="${b.indentEm}em"` : '',
         b.hangingEm ? `fo:text-indent="-${b.hangingEm}em"` : '',
         `fo:margin-top="${b.spaceBefore ?? 0}pt"`,
+        b.pageBreakBefore ? 'fo:break-before="page"' : '',
         'fo:margin-bottom="0pt"',
       ].filter(Boolean).join(' ');
       st.paragraphs.push(
@@ -145,7 +146,8 @@ ${body}
 </office:document-content>`;
 }
 
-function stylesXml(): string {
+function stylesXml(doc: OfficialDocument): string {
+  const header = pageHeader(doc);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-styles ${NS} office:version="1.2">
 ${fontDecls()}
@@ -155,14 +157,15 @@ ${fontDecls()}
 <style:text-properties style:font-name="${BODY_FONT}" style:font-name-asian="${BODY_FONT}" style:font-name-complex="${BODY_FONT}" fo:font-size="${BODY_SIZE}pt" style:font-size-asian="${BODY_SIZE}pt" fo:language="zh" fo:country="TW" style:language-asian="zh" style:country-asian="TW"/>
 </style:default-style>
 <style:style style:name="Standard" style:family="paragraph" style:class="text"/>
+<style:style style:name="Header" style:family="paragraph" style:parent-style-name="Standard" style:class="extra"><style:paragraph-properties fo:text-align="center"/><style:text-properties fo:font-size="12pt" style:font-size-asian="12pt"/></style:style>
 </office:styles>
 <office:automatic-styles>
 <style:page-layout style:name="pm1">
-<style:page-layout-properties fo:page-width="21cm" fo:page-height="29.7cm" fo:margin-top="2.5cm" fo:margin-bottom="2.5cm" fo:margin-left="2cm" fo:margin-right="2cm"/>
+<style:page-layout-properties fo:page-width="21cm" fo:page-height="29.7cm" fo:margin-top="${header ? '1.5cm' : '2.5cm'}" fo:margin-bottom="2.5cm" fo:margin-left="2cm" fo:margin-right="2cm"/>${header ? '<style:header-style><style:header-footer-properties fo:min-height="0.5cm" fo:margin-bottom="0.5cm"/></style:header-style>' : ''}
 </style:page-layout>
 </office:automatic-styles>
 <office:master-styles>
-<style:master-page style:name="Standard" style:page-layout-name="pm1"/>
+<style:master-page style:name="Standard" style:page-layout-name="pm1">${header ? `<style:header><text:p text:style-name="Header">${esc(header)}</text:p></style:header>` : ''}</style:master-page>
 </office:master-styles>
 </office:document-styles>`;
 }
@@ -190,7 +193,7 @@ export async function buildOdt(doc: OfficialDocument): Promise<Uint8Array> {
   const zip = new JSZip();
   zip.file('mimetype', ODT_MIME, { compression: 'STORE' });
   zip.file('content.xml', contentXml(doc));
-  zip.file('styles.xml', stylesXml());
+  zip.file('styles.xml', stylesXml(doc));
   zip.file('meta.xml', metaXml(doc));
   zip.file('META-INF/manifest.xml', MANIFEST);
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE', mimeType: ODT_MIME });

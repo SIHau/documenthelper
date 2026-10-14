@@ -23,6 +23,7 @@ button:disabled { opacity: .4; cursor: default; }
 .page { background: #fff; width: 210mm; min-height: 297mm; margin: 12px auto; padding: 25mm 20mm;
   font-family: "標楷體", "DFKai-SB", "BiauKai", serif; font-size: 16pt; line-height: 1.6; box-shadow: 0 1px 6px rgba(0,0,0,.2); }
 .pv-p { margin: 0; white-space: pre-wrap; word-break: break-all; }
+.pv-header { margin: -10mm 0 6mm; text-align: center; font-size: 12pt; }
 .pv-table { width: 100%; border-collapse: collapse; table-layout: fixed; line-height: 1.6; }
 .pv-table th, .pv-table td { border: 0.5pt solid #000; padding: 4pt; vertical-align: top; text-align: left; white-space: pre-wrap; word-break: break-all; }
 .pv-table th { text-align: center; }
@@ -37,6 +38,7 @@ button:disabled { opacity: .4; cursor: default; }
   .layout { display: block; height: auto; }
   .pane { padding: 0; overflow: visible; }
   .page { box-shadow: none; margin: 0; width: auto; min-height: auto; }
+  .page + .page { break-before: page; }
 }
 
 .toolbar { gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }

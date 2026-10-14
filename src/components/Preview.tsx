@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { OfficialDocument } from '../model/types';
-import { buildBlocks } from '../export/layout';
+import { buildBlocks, pageHeader } from '../export/layout';
 import type { Block, Run, Table } from '../export/layout';
 
 function runStyle(r: Run): CSSProperties {
@@ -39,21 +39,32 @@ function PreviewTable({ table, spaceBefore }: { table: Table; spaceBefore?: numb
   );
 }
 
-/** 預覽與匯出共用同一份版面資料，確保所見即所得 */
+/** 預覽與匯出共用同一份版面資料，確保所見即所得；遇到分頁區塊就另起一張紙 */
 export function Preview({ doc }: { doc: OfficialDocument }) {
+  const header = pageHeader(doc);
+  const pages: Block[][] = [[]];
+  for (const b of buildBlocks(doc)) {
+    if (b.pageBreakBefore && pages[pages.length - 1].length) pages.push([]);
+    pages[pages.length - 1].push(b);
+  }
   return (
-    <article className="page">
-      {buildBlocks(doc).map((b, i) => b.table ? (
-        <PreviewTable key={i} table={b.table} spaceBefore={b.spaceBefore} />
-      ) : (
-        <p key={i} className="pv-p" style={blockStyle(b)}>
-          {b.runs
-            .filter((r) => r.text)
-            .map((r, j) => (
-              <span key={j} style={runStyle(r)}>{r.text}</span>
-            ))}
-        </p>
+    <>
+      {pages.map((blocks, pi) => (
+        <article className="page" key={pi}>
+          {header && <p className="pv-header">{header}</p>}
+          {blocks.map((b, i) => b.table ? (
+            <PreviewTable key={i} table={b.table} spaceBefore={b.spaceBefore} />
+          ) : (
+            <p key={i} className="pv-p" style={blockStyle(b)}>
+              {b.runs
+                .filter((r) => r.text)
+                .map((r, j) => (
+                  <span key={j} style={runStyle(r)}>{r.text}</span>
+                ))}
+            </p>
+          ))}
+        </article>
       ))}
-    </article>
+    </>
   );
 }

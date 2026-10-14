@@ -22,8 +22,10 @@ export interface DocTypeConfig {
   routing: boolean;
   /** 主旨是否必須以期望語結尾（請查照等） */
   expectation: boolean;
-  /** 法規修正案：條文對照表 */
-  amendment: boolean;
+  /** 函頭：發文機關、聯絡資訊、發文日期與字號、附件、副本、簽名 */
+  letterhead: boolean;
+  /** 議案關係文書：提案人、連署人與草案對照表 */
+  motion: boolean;
 }
 
 const LETTER: DocTypeConfig = {
@@ -40,7 +42,8 @@ const LETTER: DocTypeConfig = {
   meeting: false,
   routing: true,
   expectation: true,
-  amendment: false,
+  letterhead: true,
+  motion: false,
 };
 
 export const DOC_TYPES: Record<DocType, DocTypeConfig> = {
@@ -75,13 +78,17 @@ export const DOC_TYPES: Record<DocType, DocTypeConfig> = {
     routing: false,
     expectation: false,
   },
-  法規修正案: {
+  議案關係文書: {
     ...LETTER,
+    recipient: false,
+    docNumber: false,
     urgencySecrecy: false,
     subjectLabel: '案由',
     measuresLabel: null,
+    routing: false,
     expectation: false,
-    amendment: true,
+    letterhead: false,
+    motion: true,
   },
 };
 

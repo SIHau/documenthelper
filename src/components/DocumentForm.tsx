@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import type { Direction, DocType, OfficialDocument, Secrecy, SignatureFont, Urgency } from '../model/types';
+import type { Direction, DocType, DraftMode, OfficialDocument, Secrecy, SignatureFont, Urgency } from '../model/types';
 import { DOC_TYPES, DOC_TYPE_LIST } from '../model/docTypes';
 import type { Agency } from '../db/types';
 import { AgencyPicker } from './AgencyPicker';
 import { OutlineEditor } from './OutlineEditor';
-import { AmendmentEditor } from './AmendmentEditor';
+import { DraftTableEditor } from './DraftTableEditor';
 import { confirmDialog } from '../dialogs';
 
 interface Props {
@@ -55,6 +55,8 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
     onChange({ ...doc, [key]: value });
   const setContact = (key: keyof OfficialDocument['contact'], value: string) =>
     onChange({ ...doc, contact: { ...doc.contact, [key]: value } });
+  const setMotion = <K extends keyof OfficialDocument['motion']>(key: K, value: OfficialDocument['motion'][K]) =>
+    onChange({ ...doc, motion: { ...doc.motion, [key]: value } });
   const setMeeting = (key: keyof OfficialDocument['meeting'], value: string) =>
     onChange({ ...doc, meeting: { ...doc.meeting, [key]: value } });
   const setSignature = <K extends keyof OfficialDocument['signature']>(
@@ -82,11 +84,19 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
               {DOC_TYPE_LIST.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </Field>
-          <Field label="行文方向">
-            <select value={doc.direction} onChange={(e) => set('direction', e.target.value as Direction)}>
-              <option>上行</option><option>平行</option><option>下行</option>
-            </select>
-          </Field>
+          {cfg.letterhead && (
+            <Field label="行文方向">
+              <select value={doc.direction} onChange={(e) => set('direction', e.target.value as Direction)}>
+                <option>上行</option><option>平行</option><option>下行</option>
+              </select>
+            </Field>
+          )}
+          {cfg.motion && (
+            <Field label="屆別（頁首：學生議會第○屆）">
+              <input value={doc.motion.term} placeholder="例：十四"
+                onChange={(e) => setMotion('term', e.target.value)} />
+            </Field>
+          )}
           {cfg.urgencySecrecy && (
             <>
               <Field label="速別">
@@ -103,9 +113,11 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
               </Field>
             </>
           )}
-          <Field label={cfg.dateLabel}>
-            <input type="date" value={doc.date} onChange={(e) => set('date', e.target.value)} />
-          </Field>
+          {cfg.letterhead && (
+            <Field label={cfg.dateLabel}>
+              <input type="date" value={doc.date} onChange={(e) => set('date', e.target.value)} />
+            </Field>
+          )}
           {cfg.docNumber && (
             <Field label="發文字號">
               <input value={doc.docNumber} placeholder="例：府授字第1140001234號"
@@ -115,6 +127,7 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
         </div>
       </fieldset>
 
+      {cfg.letterhead && (
       <fieldset>
         <legend>機關與{cfg.recipient ? cfg.recipientLabel : '聯絡'}</legend>
         <div className="grid">
@@ -153,6 +166,7 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
           )}
         </div>
       </fieldset>
+      )}
 
       {cfg.meeting && (
         <fieldset>
@@ -173,7 +187,7 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
         <fieldset>
           <legend>{cfg.subjectLabel}</legend>
           <textarea rows={3} value={doc.subject}
-            placeholder={cfg.amendment ? '例：擬修正學生會組織章程部分條文，提請審議案。' : '簡明扼要，一段完成，不分項'}
+            placeholder={cfg.motion ? '例：本會議員○○○等三人，鑒於…，擬具「○○○」修正草案，是否有當？敬請公決。' : '簡明扼要，一段完成，不分項'}
             onChange={(e) => set('subject', e.target.value.replace(/\n/g, ''))} />
         </fieldset>
       )}
@@ -192,18 +206,43 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
         </fieldset>
       )}
 
-      {cfg.amendment && (
-        <fieldset>
-          <legend>條文對照表</legend>
-          <Field label="法規名稱">
-            <input value={doc.amendment.lawName} placeholder="例：學生會組織章程"
-              onChange={(e) => set('amendment', { ...doc.amendment, lawName: e.target.value })} />
-          </Field>
-          <AmendmentEditor rows={doc.amendment.rows}
-            onChange={(rows) => set('amendment', { ...doc.amendment, rows })} />
-        </fieldset>
+      {cfg.motion && (
+        <>
+          <fieldset>
+            <legend>提案人與連署人</legend>
+            <div className="grid">
+              <Field label="提案人">
+                <input value={doc.motion.proposer} placeholder="議員姓名或黨團名稱"
+                  onChange={(e) => setMotion('proposer', e.target.value)} />
+              </Field>
+              <Field label="連署人（黨團提案免填）">
+                <input value={doc.motion.cosigners} placeholder="以空白或頓號分隔"
+                  onChange={(e) => setMotion('cosigners', e.target.value)} />
+              </Field>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>草案對照表（另起一頁，可留空）</legend>
+            <div className="grid">
+              <Field label="草案名稱">
+                <input value={doc.motion.draftTitle} placeholder="例：學生會組織章程修正草案"
+                  onChange={(e) => setMotion('draftTitle', e.target.value)} />
+              </Field>
+              <Field label="類型">
+                <select value={doc.motion.mode} onChange={(e) => setMotion('mode', e.target.value as DraftMode)}>
+                  <option value="修正">修正（修正條文｜現行條文｜說明）</option>
+                  <option value="新訂">新訂（條文｜說明）</option>
+                </select>
+              </Field>
+            </div>
+            <DraftTableEditor mode={doc.motion.mode} rows={doc.motion.rows}
+              onChange={(rows) => setMotion('rows', rows)} />
+          </fieldset>
+        </>
       )}
 
+      {cfg.letterhead && (
+      <>
       <fieldset>
         <legend>附件{cfg.routing ? '與副本' : ''}</legend>
         <Field label="附件">
@@ -253,6 +292,8 @@ export function DocumentForm({ doc, agencies, onChange, onReset }: Props) {
           </Field>
         </div>
       </fieldset>
+      </>
+      )}
     </form>
   );
 }

@@ -2,7 +2,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import type { PDFFont, PDFPage } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import type { OfficialDocument } from '../model/types';
-import { BODY_SIZE, buildBlocks } from './layout';
+import { BODY_SIZE, buildBlocks, pageHeader } from './layout';
 import type { Block, Run, Table } from './layout';
 import { findSubset } from './pdfFonts';
 import { woffToSfnt } from './woff';
@@ -15,6 +15,8 @@ const MARGIN_Y = 70.87; // 2.5 cm
 const LINE_HEIGHT = 1.6;
 const CONTENT_W = PAGE_W - MARGIN_X * 2;
 const CELL_PAD = 4;
+const HEADER_SIZE = 12;
+const HEADER_TOP = 42.52; // 1.5 cm
 
 const CLOSING = new Set('，。、；：？！）」』】》,.;:?!)');
 const OPENING = new Set('（「『【《(');
@@ -74,6 +76,8 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
       })),
     );
   const perBlock: Item[][] = blocks.map((b) => toItems(b.runs));
+  const headerText = pageHeader(doc);
+  const headerItems = headerText ? toItems([{ text: headerText, size: HEADER_SIZE }]) : [];
   // 表格：每列每格各自一串字元，標題列粗體
   const perCell: Item[][][][] = blocks.map((b) =>
     b.table
@@ -85,7 +89,7 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
 
   const missing = new Set<string>();
   const needed = new Map<string, FontFace>();
-  for (const items of [...perBlock, ...perCell.flat(2)]) {
+  for (const items of [...perBlock, ...perCell.flat(2), headerItems]) {
     for (const it of items) {
       if (it.newline) continue;
       const cp = it.ch.codePointAt(0)!;
@@ -126,6 +130,7 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
     });
   const measured = perBlock.map(measure);
   const measuredCells = perCell.map((rows) => rows.map((row) => row.map(measure)));
+  const headerLine = headerItems.length ? wrap(measure(headerItems), () => CONTENT_W)[0] : null;
 
   // 4. 排版與繪製
   let page: PDFPage | null = null;
@@ -133,11 +138,14 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
   const newPage = () => {
     page = pdf.addPage([PAGE_W, PAGE_H]);
     y = PAGE_H - MARGIN_Y;
+    // 頁首置中，距上緣 1.5 cm
+    if (headerLine) drawLine(page, headerLine, MARGIN_X + (CONTENT_W - headerLine.width) / 2, PAGE_H - HEADER_TOP - HEADER_SIZE * 0.86);
   };
   newPage();
   const bottom = MARGIN_Y;
 
   blocks.forEach((b, bi) => {
+    if (b.pageBreakBefore && y < PAGE_H - MARGIN_Y) newPage();
     if (b.table) {
       drawTable(b.table, measuredCells[bi], b.spaceBefore ?? 0);
       return;

@@ -58,22 +58,25 @@ describe('checkDocument', () => {
     expect(ids(announce)).not.toContain('recipient');
   });
 
-  it('checks the amendment comparison table', () => {
-    const base = letter({ type: '法規修正案', subject: '擬修正章程第三條，提請審議案。' });
-    expect(ids(base)).toEqual(expect.arrayContaining(['law-name', 'law-rows']));
-    expect(ids(base)).not.toContain('subject-expect');
+  it('checks 議案關係文書 without letterhead rules', () => {
+    const base = { ...emptyDocument('議案關係文書'), subject: '擬修正章程第三條。' };
+    const r = ids(base);
+    expect(r).toEqual(expect.arrayContaining(['motion-proposer', 'motion-term', 'motion-ending']));
+    expect(r).not.toContain('sender');
+    expect(r).not.toContain('docnum');
     const rows = [
       { id: 'r1', amended: '第三條　甲。', current: '第三條　乙。', reason: '修正文字。' },
       { id: 'r2', amended: '', current: '', reason: '說明而已。' },
       { id: 'r3', amended: '第五條　丙。', current: '第五條　丙。', reason: '' },
     ];
-    const r = ids({ ...base, amendment: { lawName: '學生會組織章程', rows } });
-    expect(r).not.toContain('law-name');
-    expect(r).not.toContain('law-text:r1');
-    expect(r).toEqual(expect.arrayContaining(['law-text:r2', 'law-reason:r3', 'law-same:r3']));
-    const ok = ids({ ...base, amendment: { lawName: '學生會組織章程', rows: [rows[0]] } });
-    expect(ok.filter((i) => i.startsWith('law'))).toEqual([]);
-    expect(checkDocument(base).find((i) => i.id === 'law-name')!.where).toBe('條文對照表');
+    const motion = { term: '十四', proposer: '王小明', cosigners: '王中明', draftTitle: '', mode: '修正' as const, rows };
+    const r2 = ids({ ...base, subject: '是否有當？敬請公決。', motion });
+    expect(r2).toEqual(expect.arrayContaining(['motion-cosigners', 'draft-title', 'draft-text:r2', 'draft-reason:r3', 'draft-same:r3']));
+    expect(r2).not.toContain('draft-text:r1');
+    const ok = ids({ ...base, subject: '是否有當？敬請公決。', motion: { ...motion, cosigners: '王中明 王大明', draftTitle: '章程修正草案', rows: [rows[0]] } });
+    expect(ok).toEqual([]);
+    const fresh = ids({ ...base, subject: '是否有當？敬請公決。', motion: { ...motion, cosigners: '', mode: '新訂' as const, draftTitle: '某法草案', rows: [{ id: 'n', amended: '', current: '', reason: '理由。' }] } });
+    expect(fresh).toContain('draft-text:n');
   });
 
   it('sorts errors before warnings and info', () => {

@@ -12,8 +12,8 @@ export function normalizeDocument(saved: Record<string, unknown>): OfficialDocum
       : { ...base.contact, ...(saved.contact as object) };
   const signature = { ...base.signature, ...(saved.signature as object) };
   const meeting = { ...base.meeting, ...(saved.meeting as object) };
-  const amendment = { ...base.amendment, ...(saved.amendment as object) };
-  return { ...base, ...saved, contact, signature, meeting, amendment } as OfficialDocument;
+  const motion = { ...base.motion, ...(saved.motion as object) };
+  return { ...base, ...saved, contact, signature, meeting, motion } as OfficialDocument;
 }
 
 export function loadDraft(): OfficialDocument {

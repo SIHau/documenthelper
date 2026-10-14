@@ -1,6 +1,6 @@
-import { AlignmentType, BorderStyle, Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
+import { AlignmentType, BorderStyle, Document, Header, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
 import type { OfficialDocument } from '../model/types';
-import { BODY_FONT, BODY_SIZE, buildBlocks } from './layout';
+import { BODY_FONT, BODY_SIZE, buildBlocks, pageHeader } from './layout';
 import type { Block, Table as TableSpec } from './layout';
 
 const ALIGN = {
@@ -18,6 +18,7 @@ const LINE = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
 function paragraph(b: Block): Paragraph {
   return new Paragraph({
     alignment: ALIGN[b.align ?? 'left'],
+    pageBreakBefore: b.pageBreakBefore,
     spacing: { before: (b.spaceBefore ?? 0) * 20, line: 384 },
     indent: b.indentEm
       ? {
@@ -78,6 +79,7 @@ function nodes(b: Block): Array<Paragraph | Table> {
 }
 
 export async function buildDocx(doc: OfficialDocument): Promise<Blob> {
+  const headerText = pageHeader(doc);
   const file = new Document({
     title: doc.subject,
     creator: 'documenthelper',
@@ -90,10 +92,19 @@ export async function buildDocx(doc: OfficialDocument): Promise<Blob> {
     },
     sections: [
       {
+        headers: headerText
+          ? {
+              default: new Header({
+                children: [
+                  new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: headerText, size: 24 })] }),
+                ],
+              }),
+            }
+          : undefined,
         properties: {
           page: {
             size: { width: 11906, height: 16838 },
-            margin: { top: 1418, bottom: 1418, left: 1134, right: 1134 },
+            margin: { top: 1418, bottom: 1418, left: 1134, right: 1134, header: 851 },
           },
         },
         children: buildBlocks(doc).flatMap(nodes),

@@ -63,10 +63,14 @@ describe('buildPdf', () => {
     expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(1);
   }, 60000);
 
-  it('draws the amendment table and repeats the header across pages', async () => {
-    const d = { ...sample(), type: '法規修正案' as const };
-    d.amendment = {
-      lawName: '學生會組織章程',
+  it('draws the motion header, draft page and repeats the table header across pages', async () => {
+    const d = { ...sample(), type: '議案關係文書' as const, subject: '擬具草案，是否有當？敬請公決。' };
+    d.motion = {
+      term: '十四',
+      proposer: '王小明',
+      cosigners: '王中明 王大明',
+      draftTitle: '學生會組織章程修正草案',
+      mode: '修正',
       rows: Array.from({ length: 30 }, (_, i) => ({
         id: String(i),
         amended: `第${i + 1}條　本會置會長一人，綜理會務，對外代表本會。`,
@@ -76,6 +80,6 @@ describe('buildPdf', () => {
     };
     const { bytes, missing } = await buildPdf(d, fonts);
     expect(missing).toEqual([]);
-    expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(1);
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(2);
   }, 60000);
 });
