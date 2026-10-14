@@ -1,4 +1,4 @@
-import { emptyDocument, newAmendmentRow, newItem } from '../model/defaults';
+import { emptyDocument, newAmendmentRow, newItem, newMinutesCase } from '../model/defaults';
 import type { DocType, OfficialDocument } from '../model/types';
 
 export interface BuiltinTemplate {
@@ -64,6 +64,9 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
           observers: '',
           remarks: '',
           agenda: '',
+          onLeave: '',
+          absent: '',
+          recorder: '',
         },
       }),
   },
@@ -184,6 +187,9 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
           observers: '',
           remarks: '本次會議不列印紙本資料，請與會人員留意。\n自此通知送達起至開會當日○時○分辦理質詢登記相關事宜，其餘時段恕不接受任何形式之登記。',
           agenda: '第○屆學生議會\n○○委員會第○次會議',
+          onLeave: '',
+          absent: '',
+          recorder: '',
         },
         explanation: [newItem(0, '○○○。')],
         measures: [newItem(0, '○○○。')],
@@ -203,6 +209,68 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       }),
   },
   {
+    id: 'builtin:council-review',
+    name: '學生議會：審查報告對照表',
+    description: '審查會通過條文、各提案、現行條文與說明併列',
+    build: () =>
+      make('審查報告對照表', {
+        motion: {
+          ...emptyDocument().motion,
+          draftTitle: `${COUNCIL}議事規則部分條文修正草案`,
+          reviewer: '○○委員會',
+          proposalNames: ['○○○等三人', '○○黨團'],
+          rows: [{ ...newAmendmentRow(), amended: '第○條　○○○。', proposals: ['第○條　○○○。', ''], current: '第○條　○○○。', reason: '一、○○○。' }],
+        },
+      }),
+  },
+  {
+    id: 'builtin:council-correction',
+    name: '學生議會：糾正案',
+    description: '被糾正機關、案由、事實與理由，文末提案議員',
+    build: () =>
+      make('糾正案', {
+        recipient: { name: '○○○' },
+        subject: '○○○，爰依法提案糾正。',
+        explanation: [newItem(0, '○○○。')],
+        motion: { ...emptyDocument().motion, proposer: '○○○' },
+      }),
+  },
+  {
+    id: 'builtin:council-minutes',
+    name: '學生議會：會議紀錄',
+    description: '常會或臨時會會議紀錄，討論事項逐案記載決議',
+    build: () =>
+      make('會議紀錄', {
+        sender: { name: '○○高級中學學生聯合自治會' },
+        meeting: {
+          ...emptyDocument().meeting,
+          reason: '學生議會第○屆第○次常會',
+          time: '中華民國○年○月○日（星期○）',
+          place: '○○○',
+          chair: '○○○',
+          attendees: '○○○',
+          recorder: '○○○',
+        },
+        minutes: {
+          opening: '○○:○○',
+          speech: '',
+          agendaNote: '',
+          cases: [{ ...newMinutesCase(), proposer: '○○○', subject: '○○○，提請審議。', explanation: '○○○。', resolution: '照案通過。' }],
+          extempore: '',
+        },
+      }),
+  },
+  {
+    id: 'builtin:council-signin',
+    name: '學生議會：會議簽到表',
+    description: '應到人員姓名在上、簽名格在下，另有列席與旁聽欄',
+    build: () =>
+      make('簽到表', {
+        sender: { name: COUNCIL },
+        meeting: { ...emptyDocument().meeting, reason: '第○屆第○次常會', time: '中華民國○年○月○日' },
+      }),
+  },
+  {
     id: 'builtin:motion-members',
     name: '議案關係文書：議員提案（修正草案）',
     description: '三人以上議員提案，附修正條文對照表',
@@ -211,6 +279,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
         subject: '本會議員○○○等三人，鑒於○○○，擬具「○○○」修正草案，是否有當？敬請公決。',
         explanation: [newItem(0, '○○○。'), newItem(0, '○○○。')],
         motion: {
+          ...emptyDocument().motion,
           term: '○',
           proposer: '○○○',
           cosigners: '○○○ ○○○',
@@ -229,6 +298,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
         subject: '本會○○黨團鑒於○○○，擬具「○○○」草案，是否有當？敬請公決。',
         explanation: [newItem(0, '依《○○○》第○條擬定之。')],
         motion: {
+          ...emptyDocument().motion,
           term: '○',
           proposer: '○○黨團',
           cosigners: '',

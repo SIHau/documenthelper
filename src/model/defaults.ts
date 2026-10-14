@@ -1,4 +1,4 @@
-import type { AmendmentRow, OfficialDocument, OutlineItem } from './types';
+import type { AmendmentRow, MinutesCase, OfficialDocument, OutlineItem } from './types';
 import { todayIso } from './date';
 
 let seq = 0;
@@ -12,7 +12,11 @@ export function newItem(level = 0, text = ''): OutlineItem {
 }
 
 export function newAmendmentRow(): AmendmentRow {
-  return { id: newId(), amended: '', current: '', reason: '' };
+  return { id: newId(), amended: '', current: '', reason: '', proposals: [] };
+}
+
+export function newMinutesCase(): MinutesCase {
+  return { id: newId(), proposer: '', subject: '', explanation: '', resolution: '' };
 }
 
 export function emptyDocument(type: OfficialDocument['type'] = '函'): OfficialDocument {
@@ -35,7 +39,8 @@ export function emptyDocument(type: OfficialDocument['type'] = '函'): OfficialD
     ccRecipients: '',
     signature: { enabled: true, title: '', name: '', font: 'yuji-boku' },
     archive: { fileNo: '', retention: '' },
-    meeting: { reason: '', time: '', place: '', chair: '', contact: '', attendees: '', observers: '', remarks: '', agenda: '' },
-    motion: { term: '', proposer: '', cosigners: '', draftTitle: '', mode: '修正', rows: [newAmendmentRow()] },
+    meeting: { reason: '', time: '', place: '', chair: '', contact: '', attendees: '', observers: '', remarks: '', agenda: '', onLeave: '', absent: '', recorder: '' },
+    motion: { term: '', proposer: '', cosigners: '', draftTitle: '', mode: '修正', rows: [newAmendmentRow()], reviewer: '', proposalNames: [] },
+    minutes: { opening: '', speech: '', agendaNote: '', cases: [newMinutesCase()], extempore: '' },
   };
 }

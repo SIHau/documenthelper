@@ -66,6 +66,15 @@ describe('checkDocument', () => {
     expect(r).not.toContain('recipient');
   });
 
+  it('checks the council table-type documents', () => {
+    expect(ids(emptyDocument('會議紀錄'))).toEqual(expect.arrayContaining(['sender', 'm-reason', 'm-chair', 'm-recorder']));
+    expect(ids(emptyDocument('簽到表'))).toEqual(expect.arrayContaining(['sender', 'm-reason']));
+    const correction = ids(emptyDocument('糾正案'));
+    expect(correction).toEqual(expect.arrayContaining(['recipient', 'subject-empty', 'motion-proposer']));
+    expect(correction).not.toContain('date');
+    expect(ids(emptyDocument('審查報告對照表'))).toEqual(expect.arrayContaining(['draft-title', 'draft-rows', 'review-proposals']));
+  });
+
   it('checks 議案關係文書 without letterhead rules', () => {
     const base = { ...emptyDocument('議案關係文書'), subject: '擬修正章程第三條。' };
     const r = ids(base);
@@ -77,7 +86,7 @@ describe('checkDocument', () => {
       { id: 'r2', amended: '', current: '', reason: '說明而已。' },
       { id: 'r3', amended: '第五條　丙。', current: '第五條　丙。', reason: '' },
     ];
-    const motion = { term: '十四', proposer: '王小明', cosigners: '王中明', draftTitle: '', mode: '修正' as const, rows };
+    const motion = { term: '十四', proposer: '王小明', cosigners: '王中明', draftTitle: '', mode: '修正' as const, rows, reviewer: '', proposalNames: [] };
     const r2 = ids({ ...base, subject: '是否有當？敬請公決。', motion });
     expect(r2).toEqual(expect.arrayContaining(['motion-cosigners', 'draft-title', 'draft-text:r2', 'draft-reason:r3', 'draft-same:r3']));
     expect(r2).not.toContain('draft-text:r1');

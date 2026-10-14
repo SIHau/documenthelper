@@ -79,10 +79,16 @@ function build(blocks: Block[], contentCm: number): { body: string; auto: string
         '<style:style style:name="TblCell" style:family="table-cell"><style:table-cell-properties fo:padding="0.1cm" fo:border="0.5pt solid #000000"/></style:style>',
         `<style:style style:name="TblHead" style:family="paragraph" style:parent-style-name="Standard"><style:paragraph-properties fo:text-align="center"/><style:text-properties ${sizeProps} fo:font-weight="bold" style:font-weight-asian="bold"/></style:style>`,
         `<style:style style:name="TblText" style:family="paragraph" style:parent-style-name="Standard"><style:text-properties ${sizeProps}/></style:style>`,
+        `<style:style style:name="TblCenter" style:family="paragraph" style:parent-style-name="TblText"><style:paragraph-properties fo:text-align="center"/></style:style>`,
       );
     }
-    const row = (cells: string[], pStyle: string) =>
-      '<table:table-row>' +
+    if (t.rowHeight) {
+      st.paragraphs.push(
+        `<style:style style:name="${name}.R" style:family="table-row"><style:table-row-properties style:min-row-height="${t.rowHeight}pt"/></style:style>`,
+      );
+    }
+    const row = (cells: string[], pStyle: string, rowStyle = '') =>
+      `<table:table-row${rowStyle ? ` table:style-name="${rowStyle}"` : ''}>` +
       cells
         .map(
           (c) =>
@@ -93,8 +99,8 @@ function build(blocks: Block[], contentCm: number): { body: string; auto: string
     return (
       `<table:table table:name="${name}" table:style-name="${name}">` +
       t.columns.map((_, c) => `<table:table-column table:style-name="${name}.C${c}"/>`).join('') +
-      `<table:table-header-rows>${row(t.header, 'TblHead')}</table:table-header-rows>` +
-      t.rows.map((r) => row(r, 'TblText')).join('') +
+      (t.header.length ? `<table:table-header-rows>${row(t.header, 'TblHead')}</table:table-header-rows>` : '') +
+      t.rows.map((r) => row(r, t.center ? 'TblCenter' : 'TblText', t.rowHeight ? `${name}.R` : '')).join('') +
       '</table:table>'
     );
   };
@@ -105,8 +111,9 @@ function build(blocks: Block[], contentCm: number): { body: string; auto: string
       const name = `P${i + 1}`;
       const props = [
         `fo:text-align="${ALIGN[b.align ?? 'left']}"`,
-        b.indentEm ? `fo:margin-left="${b.indentEm}em"` : '',
-        b.hangingEm ? `fo:text-indent="-${b.hangingEm}em"` : '',
+        // LibreOffice 不支援 em，換算成 pt（1em = 本文字級）
+        b.indentEm ? `fo:margin-left="${+(b.indentEm * BODY_SIZE).toFixed(2)}pt"` : '',
+        b.hangingEm ? `fo:text-indent="-${+(b.hangingEm * BODY_SIZE).toFixed(2)}pt"` : '',
         `fo:margin-top="${b.spaceBefore ?? 0}pt"`,
         b.pageBreakBefore ? 'fo:break-before="page"' : '',
         'fo:margin-bottom="0pt"',

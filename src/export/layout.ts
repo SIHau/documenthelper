@@ -1,5 +1,5 @@
 import type { OfficialDocument } from '../model/types';
-import { formatLabel, numberItems } from '../model/numbering';
+import { formatLabel, numberItems, toChineseNumber } from '../model/numbering';
 import { toMinguoText } from '../model/date';
 import { DOC_TYPES } from '../model/docTypes';
 
@@ -16,10 +16,15 @@ export interface Run {
 /** 表格：欄寬以內容寬度的比例表示，儲存格為純文字 */
 export interface Table {
   columns: number[];
+  /** 標題列（粗體置中，換頁時重複）；空陣列表示沒有標題列 */
   header: string[];
   rows: string[][];
   /** pt */
   size: number;
+  /** pt：內容列的最小列高（簽到表、手寫欄） */
+  rowHeight?: number;
+  /** 內容列置中（簽到表姓名） */
+  center?: boolean;
 }
 
 export interface Block {
@@ -150,9 +155,9 @@ export function hasBindingLine(doc: OfficialDocument): boolean {
   return DOC_TYPES[doc.type].filing;
 }
 
-/** 左右邊界（cm）：函頭類依樣張 2.5 cm，其餘 2 cm */
+/** 左右邊界（cm）：依樣張，議案關係文書 2 cm，其餘 2.5 cm */
 export function marginXcm(doc: OfficialDocument): number {
-  return DOC_TYPES[doc.type].letterhead ? 2.5 : 2;
+  return DOC_TYPES[doc.type].motion ? 2 : 2.5;
 }
 
 /** 頁尾文字的組成：第 {page} 頁 共 {total} 頁 */
@@ -203,9 +208,141 @@ function agendaBlocks(doc: OfficialDocument): Block[] {
   return blocks;
 }
 
+const lines = (s: string) => s.split('\n').map((t) => t.trim()).filter(Boolean);
+const joinNames = (...parts: string[]) => parts.flatMap(splitNames).join('、');
+
+/** 審查報告對照表：標題兩行，表格欄位為「審查會通過條文｜各提案｜現行條文｜說明」 */
+function buildReviewBlocks(doc: OfficialDocument): Block[] {
+  const m = doc.motion;
+  const names = m.proposalNames.map((n) => n.trim()).filter(Boolean);
+  const rows = m.rows.filter((r) => r.amended.trim() || r.current.trim() || r.reason.trim() || r.proposals?.some((p) => p.trim()));
+  const n = names.length + 3;
+  return [
+    { runs: [{ text: m.draftTitle.trim() || '（法規名稱）', size: 20 }], align: 'center' },
+    { runs: [{ text: '審查報告對照表', size: 20 }], align: 'center' },
+    {
+      runs: [],
+      spaceBefore: 6,
+      table: {
+        columns: Array(n).fill(1 / n),
+        header: [`${m.reviewer.trim() || '○○委員會'}\n通過條文`, ...names.map((x) => `${x}提案`), '現行條文', '說明'],
+        rows: rows.map((r) => [r.amended, ...names.map((_, i) => r.proposals?.[i] ?? ''), r.current, r.reason]),
+        size: MOTION_SIZE,
+      },
+    },
+  ];
+}
+
+/** 糾正案文：壹、被糾正機關 貳、案由 參、事實與理由，文末提案議員 */
+function buildCorrectionBlocks(doc: OfficialDocument): Block[] {
+  const blocks: Block[] = [{ runs: [{ text: '糾　正　案　文', size: 24, bold: true }], align: 'center' }];
+  const head = (label: string, value: string, spaceBefore = 12) =>
+    blocks.push({ runs: [{ text: `${label}：${value}` }], indentEm: 8, hangingEm: 8, spaceBefore });
+  head('壹、被糾正機關', doc.recipient.name);
+  head('貳、案　　　由', doc.subject, 4);
+  head('參、事實與理由', '', 4);
+  blocks.push(...outlineBlocks(null, doc.explanation, 0, 2));
+  blocks.push({ runs: [{ text: `提案議員：${joinNames(doc.motion.proposer, doc.motion.cosigners)}` }], indentEm: 14.6, hangingEm: 5, spaceBefore: 36 });
+  return blocks;
+}
+
+/** 會議紀錄：標題、會議資訊，壹至伍各段，討論事項逐案列出 */
+function buildMinutesBlocks(doc: OfficialDocument): Block[] {
+  const m = doc.meeting;
+  const mi = doc.minutes;
+  const S = MOTION_SIZE;
+  const blocks: Block[] = [
+    { runs: [{ text: doc.sender.name || '（機關名稱）', size: 20, bold: true }], align: 'center' },
+    { runs: [{ text: `${m.reason || '（會議名稱）'}會議紀錄`, size: 20, bold: true }], align: 'center' },
+  ];
+  const row = (label: string, value: string, size = BODY_SIZE, spaceBefore = 0) =>
+    blocks.push({ runs: [{ text: `${label}：${value}`, size }], indentEm: chars(5, size), hangingEm: chars(5, size), spaceBefore });
+  row('時　　間', m.time, BODY_SIZE, 18);
+  row('地　　點', m.place);
+  row('主　　席', m.chair);
+  row('出席者', m.attendees, S);
+  row('請假者', m.onLeave, S);
+  row('缺席者', m.absent, S);
+  row('列席者', m.observers, S);
+  row('記錄人員', m.recorder);
+
+  const heading = (text: string) => blocks.push({ runs: [{ text, bold: true }], spaceBefore: 18 });
+  const para = (text: string) => blocks.push({ runs: [{ text, size: S }], indentEm: chars(2, S) });
+  /** 每行一點，自動加一、二、；只有一行時不編號 */
+  const points = (text: string, indent: number) => {
+    const items = lines(text);
+    if (items.length === 1) return blocks.push({ runs: [{ text: items[0], size: S }], indentEm: chars(indent, S) });
+    items.forEach((t, i) => {
+      const label = formatLabel(0, i + 1);
+      const w = labelWidthEm(label);
+      blocks.push({ runs: [{ text: label + t, size: S }], indentEm: chars(indent + w, S), hangingEm: chars(w, S) });
+    });
+  };
+
+  heading(`壹、主席宣布開會${mi.opening.trim() ? `（${mi.opening.trim()}）` : ''}`);
+  heading('貳、主席致詞');
+  para(mi.speech.trim() || '無。');
+  heading('參、宣讀並確認本次會議議程');
+  para(mi.agendaNote.trim() || '確認。');
+  heading('肆、討論事項');
+  const cases = mi.cases.filter((c) => c.proposer.trim() || c.subject.trim() || c.explanation.trim() || c.resolution.trim());
+  if (!cases.length) para('無。');
+  cases.forEach((c, i) => {
+    blocks.push({ runs: [{ text: `【第${toChineseNumber(i + 1)}案】`, size: S, bold: true }], spaceBefore: i ? 12 : 6 });
+    const label = (k: string, v: string, bold = false) =>
+      blocks.push({ runs: [{ text: `${k}：`, size: S, bold }, { text: v, size: S }], indentEm: chars(5, S), hangingEm: chars(5, S) });
+    label('提 案 人', c.proposer);
+    label('案　　由', c.subject);
+    label('說　　明', '');
+    points(c.explanation, 3);
+    label('決　　議', '', true);
+    points(c.resolution, 3);
+  });
+  heading('伍、臨時動議');
+  para(mi.extempore.trim() || '無。');
+  return blocks;
+}
+
+/** 簽到表：會議資訊、每列七格（姓名列＋簽名列）、列席與旁聽人員欄 */
+const SIGNIN_COLS = 7;
+function buildSigninBlocks(doc: OfficialDocument): Block[] {
+  const m = doc.meeting;
+  const S = MOTION_SIZE;
+  const names = splitNames(m.attendees);
+  const blocks: Block[] = [
+    { runs: [{ text: `${doc.sender.name || '（機關名稱）'} 會議簽到表`, size: 18 }], align: 'center' },
+  ];
+  const info: Array<[string, string]> = [
+    ['會議名稱', m.reason],
+    ['會議日期', m.time],
+    ['應到', names.length ? `${names.length}人` : ''],
+    ['實到', ''],
+  ];
+  info.forEach(([k, v], i) => blocks.push({ runs: [{ text: `${k}：${v}`, size: S }], spaceBefore: i ? 0 : 12 }));
+  const grid: string[][] = [];
+  const slots = Math.max(names.length, SIGNIN_COLS * 2);
+  for (let i = 0; i < slots; i += SIGNIN_COLS) {
+    const row = Array.from({ length: SIGNIN_COLS }, (_, c) => names[i + c] ?? '');
+    grid.push(row, Array(SIGNIN_COLS).fill(''));
+  }
+  const cols = Array(SIGNIN_COLS).fill(1 / SIGNIN_COLS);
+  blocks.push({ runs: [], spaceBefore: 12, table: { columns: cols, header: [], rows: grid, size: S, rowHeight: 22, center: true } });
+  for (const [title, value] of [
+    ['列席人員（班級、座號、姓名）', m.observers],
+    ['旁聽人員（班級、座號、姓名）', ''],
+  ]) {
+    blocks.push({ runs: [], table: { columns: [1], header: [title], rows: [[value]], size: S, rowHeight: 120 } });
+  }
+  return blocks;
+}
+
 export function buildBlocks(doc: OfficialDocument): Block[] {
   const cfg = DOC_TYPES[doc.type];
   if (cfg.motion) return buildMotionBlocks(doc);
+  if (cfg.layout === 'review') return buildReviewBlocks(doc);
+  if (cfg.layout === 'correction') return buildCorrectionBlocks(doc);
+  if (cfg.layout === 'minutes') return buildMinutesBlocks(doc);
+  if (cfg.layout === 'signin') return buildSigninBlocks(doc);
   const blocks: Block[] = [];
   const line = (text: string, extra: Partial<Block> = {}, run: Partial<Run> = {}) =>
     blocks.push({ runs: [{ text, ...run }], ...extra });
