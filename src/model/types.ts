@@ -11,7 +11,8 @@ export type DocType =
   | '審查報告對照表'
   | '糾正案'
   | '會議紀錄'
-  | '簽到表';
+  | '簽到表'
+  | '概算書';
 
 /** 開會通知單專用欄位 */
 export interface Meeting {
@@ -93,6 +94,36 @@ export interface Motion {
   proposalNames: string[];
 }
 
+/** 概算表的一列 */
+export interface BudgetItem {
+  id: string;
+  /** 處室；與上一列相同時表格只印第一列 */
+  unit: string;
+  name: string;
+  /** 會計科目編號 */
+  code: string;
+  /** 金額（元），可含千分位逗號 */
+  amount: string;
+  note: string;
+}
+
+/** 概算書：封面、目次、甲、總說明（壹、前言），貳、概算案 */
+export interface Budget {
+  /** 學年度，例：114 */
+  year: string;
+  /** 起訖期間，例：114年8月1日至115年7月31日 */
+  period: string;
+  /** 編製單位，例：○○高中第十六屆學生議會 */
+  editor: string;
+  /** 前言：(一)現行法定掌職 (二)內部分層業務 (三)設立概算目的 */
+  duties: string;
+  divisions: string;
+  purpose: string;
+  /** 概算表標題，例：114學年度第一學期○○高中學生議會第十六屆預算案 */
+  tableTitle: string;
+  items: BudgetItem[];
+}
+
 /** 會議紀錄的一個討論案 */
 export interface MinutesCase {
   id: string;
@@ -160,4 +191,5 @@ export interface OfficialDocument {
   meeting: Meeting;
   motion: Motion;
   minutes: Minutes;
+  budget: Budget;
 }

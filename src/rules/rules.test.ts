@@ -72,6 +72,9 @@ describe('checkDocument', () => {
     const correction = ids(emptyDocument('糾正案'));
     expect(correction).toEqual(expect.arrayContaining(['recipient', 'subject-empty', 'motion-proposer']));
     expect(correction).not.toContain('date');
+    const budget = emptyDocument('概算書');
+    budget.budget.items = [{ id: 'x', unit: '', name: '文具', code: '', amount: '一百', note: '' }];
+    expect(ids(budget)).toEqual(expect.arrayContaining(['sender', 'budget-year', 'budget-amount:x']));
     expect(ids(emptyDocument('審查報告對照表'))).toEqual(expect.arrayContaining(['draft-title', 'draft-rows', 'review-proposals']));
   });
 

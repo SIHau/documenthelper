@@ -35,7 +35,7 @@ export interface DocTypeConfig {
   /** 議案關係文書：提案人、連署人與草案對照表 */
   motion: boolean;
   /** 版面：一般公文（函頭類、議案關係文書）或學生議會的表格類文書 */
-  layout: 'standard' | 'review' | 'correction' | 'minutes' | 'signin';
+  layout: 'standard' | 'review' | 'correction' | 'minutes' | 'signin' | 'budget';
   /** 表單顯示提案人、連署人 */
   proposers: boolean;
   /** 沒有函頭，但標題要用機關名稱（會議紀錄、簽到表） */
@@ -163,6 +163,8 @@ export const DOC_TYPES: Record<DocType, DocTypeConfig> = {
   },
   會議紀錄: { ...COUNCIL_FORM, layout: 'minutes', senderOnly: true },
   簽到表: { ...COUNCIL_FORM, layout: 'signin', senderOnly: true },
+  // 封面、目次、總說明與概算表，各自另起一頁
+  概算書: { ...COUNCIL_FORM, layout: 'budget', senderOnly: true },
 };
 
 export const DOC_TYPE_LIST = Object.keys(DOC_TYPES) as DocType[];

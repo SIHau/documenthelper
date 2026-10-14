@@ -1,5 +1,6 @@
 import type { OfficialDocument } from '../model/types';
 import { formatLabel, numberItems, toChineseNumber } from '../model/numbering';
+import { formatAmount, parseAmount } from '../model/amount';
 import { toMinguoText } from '../model/date';
 import { DOC_TYPES } from '../model/docTypes';
 
@@ -40,6 +41,8 @@ export interface Block {
   spaceBefore?: number;
   /** 從新的一頁開始 */
   pageBreakBefore?: boolean;
+  /** 位於頁首時仍保留段前距（封面等需要往下排的標題） */
+  keepSpace?: boolean;
 }
 
 export const BODY_FONT = '標楷體';
@@ -336,6 +339,75 @@ function buildSigninBlocks(doc: OfficialDocument): Block[] {
   return blocks;
 }
 
+const BUDGET_SECTIONS = [
+  ['(一)現行法定掌職', 'duties'],
+  ['(二)內部分層業務', 'divisions'],
+  ['(三)設立概算目的', 'purpose'],
+] as const;
+
+/** 概算書：封面、目次、甲、總說明，貳、概算案（各自另起一頁） */
+function buildBudgetBlocks(doc: OfficialDocument): Block[] {
+  const b = doc.budget;
+  const S = MOTION_SIZE;
+  const org = doc.sender.name || '（機關名稱）';
+  const year = `中華民國${b.year.trim() || '○'}學年度`;
+  const center = (text: string, size: number, extra: Partial<Block> = {}): Block => ({ runs: [{ text, size }], align: 'center', ...extra });
+  const blocks: Block[] = [
+    // 封面
+    center(year, 20),
+    ...(b.period.trim() ? [center(`（${b.period.trim()}）`, 14)] : []),
+    center(`${org}概算案`, 26, { spaceBefore: 180, keepSpace: true }),
+    center('總說明及主要附表', 18),
+    center(`${b.editor.trim() || org}編`, 20, { spaceBefore: 180, keepSpace: true }),
+    // 目次
+    center(`${year}${org}概算案`, 18, { pageBreakBefore: true }),
+    center('總說明及主要附表', 18),
+    center('目　次', 18, { spaceBefore: 36 }),
+  ];
+  const toc: Array<[string, number]> = [
+    ['甲、總說明', 0],
+    ['壹、前言', 1],
+    ...BUDGET_SECTIONS.map(([t]) => [t, 2] as [string, number]),
+    ['貳、概算案', 1],
+  ];
+  toc.forEach(([t, level], i) => blocks.push({ runs: [{ text: t, size: S }], indentEm: chars(level * 2, S), spaceBefore: i ? 6 : 18 }));
+
+  // 甲、總說明
+  blocks.push(center('甲、總說明', 26, { pageBreakBefore: true, spaceBefore: 120, keepSpace: true }));
+  blocks.push(center(year, 18, { spaceBefore: 120 }));
+  blocks.push(center(`${org}概算案總說明`, 18));
+  blocks.push(center('壹、前言', 18, { spaceBefore: 24 }));
+  for (const [title, key] of BUDGET_SECTIONS) {
+    blocks.push({ runs: [{ text: title, size: S }], spaceBefore: 18 });
+    for (const t of lines(b[key])) blocks.push({ runs: [{ text: t, size: S }], indentEm: chars(2, S) });
+  }
+
+  // 貳、概算案
+  blocks.push(center('貳、概算案', 20, { pageBreakBefore: true }));
+  const items = b.items.filter((it) => it.unit.trim() || it.name.trim() || it.code.trim() || it.amount.trim() || it.note.trim());
+  const total = items.reduce((sum, it) => sum + (parseAmount(it.amount) ?? 0), 0);
+  if (b.tableTitle.trim()) blocks.push({ runs: [{ text: b.tableTitle.trim(), size: S, bold: true }], align: 'center', spaceBefore: 12 });
+  blocks.push({
+    runs: [],
+    spaceBefore: b.tableTitle.trim() ? 4 : 12,
+    table: {
+      columns: [0.13, 0.15, 0.17, 0.15, 0.4],
+      header: ['處室', '項目', '編號', '費用（單位：元）', '說明'],
+      rows: [
+        ...items.map((it, i) => {
+          const amount = parseAmount(it.amount);
+          // 同一處室連續多列時只印第一列
+          const unit = i > 0 && it.unit.trim() === items[i - 1].unit.trim() ? '' : it.unit;
+          return [unit, it.name, it.code, amount === null ? it.amount : formatAmount(amount), it.note];
+        }),
+        ['合計', '', '', formatAmount(total), ''],
+      ],
+      size: 12,
+    },
+  });
+  return blocks;
+}
+
 export function buildBlocks(doc: OfficialDocument): Block[] {
   const cfg = DOC_TYPES[doc.type];
   if (cfg.motion) return buildMotionBlocks(doc);
@@ -343,6 +415,7 @@ export function buildBlocks(doc: OfficialDocument): Block[] {
   if (cfg.layout === 'correction') return buildCorrectionBlocks(doc);
   if (cfg.layout === 'minutes') return buildMinutesBlocks(doc);
   if (cfg.layout === 'signin') return buildSigninBlocks(doc);
+  if (cfg.layout === 'budget') return buildBudgetBlocks(doc);
   const blocks: Block[] = [];
   const line = (text: string, extra: Partial<Block> = {}, run: Partial<Run> = {}) =>
     blocks.push({ runs: [{ text, ...run }], ...extra });

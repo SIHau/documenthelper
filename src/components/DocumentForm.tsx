@@ -6,6 +6,7 @@ import { AgencyPicker } from './AgencyPicker';
 import { OutlineEditor } from './OutlineEditor';
 import { DraftTableEditor } from './DraftTableEditor';
 import { MinutesCaseEditor } from './MinutesCaseEditor';
+import { BudgetItemEditor } from './BudgetItemEditor';
 import { confirmDialog } from '../dialogs';
 import { COUNCIL_WORDS, defaultWord, nextDocNumber } from '../model/docNumber';
 
@@ -88,6 +89,8 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
     onChange({ ...doc, meeting: { ...doc.meeting, [key]: value } });
   const setMinutes = <K extends keyof OfficialDocument['minutes']>(key: K, value: OfficialDocument['minutes'][K]) =>
     onChange({ ...doc, minutes: { ...doc.minutes, [key]: value } });
+  const setBudget = <K extends keyof OfficialDocument['budget']>(key: K, value: OfficialDocument['budget'][K]) =>
+    onChange({ ...doc, budget: { ...doc.budget, [key]: value } });
   const setArchive = (key: keyof OfficialDocument['archive'], value: string) =>
     onChange({ ...doc, archive: { ...doc.archive, [key]: value } });
   const docWord = /^(.+?字)第/.exec(doc.docNumber)?.[1] ?? defaultWord(doc.type, doc.sender.name);
@@ -269,6 +272,47 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
             </Field>
           ))}
         </fieldset>
+      )}
+
+      {cfg.layout === 'budget' && (
+        <>
+          <fieldset>
+            <legend>封面</legend>
+            <div className="grid">
+              <Field label="學年度">
+                <input value={doc.budget.year} placeholder="例：114" onChange={(e) => setBudget('year', e.target.value)} />
+              </Field>
+              <Field label="起訖期間（可留空）">
+                <input value={doc.budget.period} placeholder="例：114年8月1日至115年7月31日"
+                  onChange={(e) => setBudget('period', e.target.value)} />
+              </Field>
+              <Field label="編製單位（○○編）">
+                <input value={doc.budget.editor} placeholder="例：○○高中第十六屆學生議會"
+                  onChange={(e) => setBudget('editor', e.target.value)} />
+              </Field>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>甲、總說明　壹、前言（每行一段）</legend>
+            <Field label="(一)現行法定掌職">
+              <textarea rows={3} value={doc.budget.duties} onChange={(e) => setBudget('duties', e.target.value)} />
+            </Field>
+            <Field label="(二)內部分層業務">
+              <textarea rows={3} value={doc.budget.divisions} onChange={(e) => setBudget('divisions', e.target.value)} />
+            </Field>
+            <Field label="(三)設立概算目的">
+              <textarea rows={3} value={doc.budget.purpose} onChange={(e) => setBudget('purpose', e.target.value)} />
+            </Field>
+          </fieldset>
+          <fieldset>
+            <legend>貳、概算案</legend>
+            <Field label="概算表標題（可留空）">
+              <input value={doc.budget.tableTitle} placeholder="例：114學年度第一學期○○高中學生議會第十六屆預算案"
+                onChange={(e) => setBudget('tableTitle', e.target.value)} />
+            </Field>
+            <BudgetItemEditor items={doc.budget.items} onChange={(v) => setBudget('items', v)} />
+          </fieldset>
+        </>
       )}
 
       {cfg.layout === 'minutes' && (
