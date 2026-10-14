@@ -13,7 +13,8 @@ export function normalizeDocument(saved: Record<string, unknown>): OfficialDocum
   const signature = { ...base.signature, ...(saved.signature as object) };
   const meeting = { ...base.meeting, ...(saved.meeting as object) };
   const motion = { ...base.motion, ...(saved.motion as object) };
-  return { ...base, ...saved, contact, signature, meeting, motion } as OfficialDocument;
+  const archive = { ...base.archive, ...(saved.archive as object) };
+  return { ...base, ...saved, contact, signature, meeting, motion, archive } as OfficialDocument;
 }
 
 export function loadDraft(): OfficialDocument {

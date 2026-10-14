@@ -2,7 +2,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import type { PDFFont, PDFPage } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import type { OfficialDocument } from '../model/types';
-import { BODY_SIZE, buildBlocks, pageHeader } from './layout';
+import { BODY_SIZE, PAGE_NUMBER_PARTS, buildBlocks, hasBindingLine, hasPageNumbers, marginXcm, pageHeader } from './layout';
 import type { Block, Run, Table } from './layout';
 import { findSubset } from './pdfFonts';
 import { woffToSfnt } from './woff';
@@ -10,13 +10,18 @@ import type { FontFace, PdfFontSet } from './pdfFonts';
 
 const PAGE_W = 595.28; // A4，單位 pt
 const PAGE_H = 841.89;
-const MARGIN_X = 56.69; // 2 cm
+const CM = 28.3465;
 const MARGIN_Y = 70.87; // 2.5 cm
 const LINE_HEIGHT = 1.6;
-const CONTENT_W = PAGE_W - MARGIN_X * 2;
 const CELL_PAD = 4;
 const HEADER_SIZE = 12;
 const HEADER_TOP = 42.52; // 1.5 cm
+const FOOTER_SIZE = 10;
+const FOOTER_BOTTOM = 34; // 頁碼基線距下緣約 1.2 cm
+/** 裝訂線距左緣 1.5 cm，「裝」「訂」「線」三字分置 */
+const BINDING_X = 1.5 * CM;
+const BINDING_LABEL = '裝訂線';
+const BINDING_SIZE = 10;
 
 const CLOSING = new Set('，。、；：？！）」』】》,.;:?!)');
 const OPENING = new Set('（「『【《(');
@@ -57,6 +62,8 @@ function hexColor(hex: string | undefined) {
 
 export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promise<PdfResult> {
   const blocks = buildBlocks(doc);
+  const MARGIN_X = marginXcm(doc) * CM;
+  const CONTENT_W = PAGE_W - MARGIN_X * 2;
 
   // 1. 展開成逐字項目，並找出每個字所屬的字體子集
   interface Item extends Glyph {
@@ -78,6 +85,9 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
   const perBlock: Item[][] = blocks.map((b) => toItems(b.runs));
   const headerText = pageHeader(doc);
   const headerItems = headerText ? toItems([{ text: headerText, size: HEADER_SIZE }]) : [];
+  // 頁碼與裝訂線用到的字先一起找字體，排版完再逐頁組字
+  const footerItems = hasPageNumbers(doc) ? toItems([{ text: PAGE_NUMBER_PARTS.join('') + '0123456789', size: FOOTER_SIZE }]) : [];
+  const bindingItems = hasBindingLine(doc) ? toItems([{ text: BINDING_LABEL, size: BINDING_SIZE }]) : [];
   // 表格：每列每格各自一串字元，標題列粗體
   const perCell: Item[][][][] = blocks.map((b) =>
     b.table
@@ -89,7 +99,7 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
 
   const missing = new Set<string>();
   const needed = new Map<string, FontFace>();
-  for (const items of [...perBlock, ...perCell.flat(2), headerItems]) {
+  for (const items of [...perBlock, ...perCell.flat(2), headerItems, footerItems, bindingItems]) {
     for (const it of items) {
       if (it.newline) continue;
       const cp = it.ch.codePointAt(0)!;
@@ -131,6 +141,8 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
   const measured = perBlock.map(measure);
   const measuredCells = perCell.map((rows) => rows.map((row) => row.map(measure)));
   const headerLine = headerItems.length ? wrap(measure(headerItems), () => CONTENT_W)[0] : null;
+  const footerGlyphs = new Map(measure(footerItems).map((g) => [g.ch, g]));
+  const bindingGlyphs = measure(bindingItems);
 
   // 4. 排版與繪製
   let page: PDFPage | null = null;
@@ -142,6 +154,7 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
     if (headerLine) drawLine(page, headerLine, MARGIN_X + (CONTENT_W - headerLine.width) / 2, PAGE_H - HEADER_TOP - HEADER_SIZE * 0.86);
   };
   newPage();
+  if (bindingGlyphs.length) drawBinding(pdf.getPage(0), bindingGlyphs);
   const bottom = MARGIN_Y;
 
   blocks.forEach((b, bi) => {
@@ -166,7 +179,7 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
       if (!atTop && y - before - lineH < bottom) newPage();
       else if (!atTop) y -= before; // 頁首不加段前距
       const baseline = y - (lineH - line.size) / 2 - line.size * 0.86;
-      const startX = lineX(b, line, first ? firstLeft : left);
+      const startX = lineX(b, line, first ? firstLeft : left, MARGIN_X, CONTENT_W);
       drawLine(page!, line, startX, baseline);
       y -= lineH;
       first = false;
@@ -208,13 +221,43 @@ export async function buildPdf(doc: OfficialDocument, fonts: PdfFontSet): Promis
     }
   }
 
+  // 頁尾：第 X 頁 共 Y 頁，置中
+  if (footerGlyphs.size) {
+    const pages = pdf.getPages();
+    pages.forEach((p, i) => {
+      const text = `${PAGE_NUMBER_PARTS[0]}${i + 1}${PAGE_NUMBER_PARTS[1]}${pages.length}${PAGE_NUMBER_PARTS[2]}`;
+      const glyphs = [...text].map((ch) => footerGlyphs.get(ch)).filter((g): g is Glyph => !!g);
+      const width = glyphs.reduce((w, g) => w + g.width, 0);
+      drawLine(p, { glyphs, width, size: FOOTER_SIZE }, (PAGE_W - width) / 2, FOOTER_BOTTOM);
+    });
+  }
+
   return { bytes: await pdf.save(), missing: [...missing] };
 }
 
-function lineX(b: Block, line: Line, leftOffset: number): number {
-  if (b.align === 'right') return MARGIN_X + CONTENT_W - line.width;
-  if (b.align === 'center') return MARGIN_X + (CONTENT_W - line.width) / 2;
-  return MARGIN_X + leftOffset;
+/** 第一頁左側虛線裝訂線，「裝」「訂」「線」分置上、中、下 */
+function drawBinding(page: PDFPage, glyphs: Glyph[]): void {
+  const top = PAGE_H - 2.5 * CM;
+  const bottom = 2 * CM;
+  page.drawLine({
+    start: { x: BINDING_X, y: top },
+    end: { x: BINDING_X, y: bottom },
+    thickness: 0.5,
+    dashArray: [1, 2],
+    color: rgb(0, 0, 0),
+  });
+  glyphs.forEach((g, i) => {
+    const y = top - ((top - bottom) * (i + 1)) / (glyphs.length + 1);
+    // 字蓋在線上，先鋪白底
+    page.drawRectangle({ x: BINDING_X - g.width / 2 - 1, y: y - 2, width: g.width + 2, height: g.size + 2, color: rgb(1, 1, 1) });
+    drawLine(page, { glyphs: [g], width: g.width, size: g.size }, BINDING_X - g.width / 2, y);
+  });
+}
+
+function lineX(b: Block, line: Line, leftOffset: number, marginX: number, contentW: number): number {
+  if (b.align === 'right') return marginX + contentW - line.width;
+  if (b.align === 'center') return marginX + (contentW - line.width) / 2;
+  return marginX + leftOffset;
 }
 
 function drawLine(page: PDFPage, line: Line, x: number, baseline: number): void {

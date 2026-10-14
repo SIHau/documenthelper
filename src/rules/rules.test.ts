@@ -53,9 +53,17 @@ describe('checkDocument', () => {
     const meeting = { ...emptyDocument('開會通知單'), sender: { name: '甲' }, recipient: { name: '乙' }, date: '2025-03-20', docNumber: 'x' };
     expect(ids(meeting)).toEqual(expect.arrayContaining(['m-reason', 'm-time', 'm-place']));
     const announce = { ...emptyDocument('公告'), sender: { name: '甲' }, date: '2025-03-20', docNumber: 'x', subject: '公告某事。' };
-    expect(ids(announce)).toContain('announce');
     expect(ids(announce)).not.toContain('subject-expect');
     expect(ids(announce)).not.toContain('recipient');
+  });
+
+  it('lets 令 omit 主旨 and 受文者 but not the body', () => {
+    const order = { ...emptyDocument('令'), sender: { name: '學生議會議長' }, date: '2025-03-20', docNumber: 'x' };
+    expect(ids(order)).toContain('body-empty');
+    const r = ids({ ...order, explanation: [newItem(0, '茲任命王小明為第十五屆學生議會秘書長。')] });
+    expect(r).not.toContain('body-empty');
+    expect(r).not.toContain('subject-empty');
+    expect(r).not.toContain('recipient');
   });
 
   it('checks 議案關係文書 without letterhead rules', () => {

@@ -8,6 +8,9 @@ export interface BuiltinTemplate {
   build: () => OfficialDocument;
 }
 
+const COUNCIL = '○○學生議會';
+const sign = (title: string, name = '○○○') => ({ enabled: true, title, name, font: 'yuji-boku' as const });
+
 function make(type: DocType, patch: Partial<OfficialDocument>): OfficialDocument {
   return { ...emptyDocument(type), ...patch };
 }
@@ -60,6 +63,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
           attendees: '○○○',
           observers: '',
           remarks: '',
+          agenda: '',
         },
       }),
   },
@@ -71,7 +75,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       make('公告', {
         subject: '公告○○○。',
         explanation: [newItem(0, '依○○○法第○條規定辦理。')],
-        measures: [newItem(0, '○○○。'), newItem(0, '特此公告。')],
+        measures: [newItem(0, '○○○。')],
       }),
   },
   {
@@ -84,6 +88,118 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
         subject: '為辦理○○○，簽請核示。',
         explanation: [newItem(0, '依據○○○辦理。'), newItem(0, '○○○。')],
         measures: [newItem(0, '擬准所請，奉核後辦理。')],
+      }),
+  },
+  {
+    id: 'builtin:council-letter',
+    name: '學生議會：議會函文（議字）',
+    description: '以議會名義發函，議長署名',
+    build: () =>
+      make('函', {
+        sender: { name: COUNCIL },
+        recipient: { name: '○○○' },
+        subject: '○○○，請查照。',
+        explanation: [newItem(0, '○○○。')],
+        signature: sign('議長'),
+      }),
+  },
+  {
+    id: 'builtin:speaker-order',
+    name: '學生議會：議長令（議令）',
+    description: '議長令，含受文者、主旨與說明',
+    build: () =>
+      make('令', {
+        sender: { name: '學生議會議長' },
+        recipient: { name: '○○○' },
+        subject: '○○○。',
+        explanation: [newItem(0, '○○○。')],
+        signature: sign('議長'),
+      }),
+  },
+  {
+    id: 'builtin:speaker-order-plain',
+    name: '學生議會：議長令（本文）',
+    description: '議長令，不分主旨說明，直接書寫本文',
+    build: () =>
+      make('令', {
+        sender: { name: '學生議會議長' },
+        explanation: [newItem(0, '○○○。')],
+        signature: sign('議長'),
+      }),
+  },
+  {
+    id: 'builtin:appointment',
+    name: '學生議會：秘書長任命書',
+    description: '議長任命秘書長，議令字',
+    build: () =>
+      make('令', {
+        sender: { name: '學生議會議長' },
+        explanation: [newItem(0, '茲任命○○○為第○屆學生議會秘書長。')],
+        signature: sign('議長'),
+      }),
+  },
+  {
+    id: 'builtin:secretary-letter',
+    name: '學生議會：議會秘書長函文（議秘）',
+    description: '以秘書長名義發函',
+    build: () =>
+      make('函', {
+        sender: { name: `${COUNCIL}秘書長` },
+        recipient: { name: '○○○' },
+        subject: '○○○，請查照。',
+        explanation: [newItem(0, '○○○。')],
+        signature: sign('秘書長'),
+      }),
+  },
+  {
+    id: 'builtin:council-announce',
+    name: '學生議會：議會公告（議佈）',
+    description: '主旨、依據、說明',
+    build: () =>
+      make('公告', {
+        sender: { name: COUNCIL },
+        subject: '公告○○○。',
+        explanation: [newItem(0, '○○○。')],
+        measures: [newItem(0, '○○○。')],
+        signature: { ...sign('議長'), enabled: false },
+      }),
+  },
+  {
+    id: 'builtin:council-meeting',
+    name: '學生議會：開會通知單（議通）',
+    description: '開會通知與第二頁議程（報告事項、討論事項）',
+    build: () =>
+      make('開會通知單', {
+        sender: { name: COUNCIL },
+        recipient: { name: '如出席者' },
+        urgency: '',
+        attachments: '無',
+        meeting: {
+          reason: '第○屆學生議會○○委員會第○次會議',
+          time: '中華民國○年○月○日（星期○）○時○分',
+          place: '○○○',
+          chair: '○○○',
+          contact: '○○○',
+          attendees: '○○○',
+          observers: '',
+          remarks: '本次會議不列印紙本資料，請與會人員留意。\n自此通知送達起至開會當日○時○分辦理質詢登記相關事宜，其餘時段恕不接受任何形式之登記。',
+          agenda: '第○屆學生議會\n○○委員會第○次會議',
+        },
+        explanation: [newItem(0, '○○○。')],
+        measures: [newItem(0, '○○○。')],
+        signature: sign(COUNCIL, ''),
+      }),
+  },
+  {
+    id: 'builtin:council-urge',
+    name: '學生議會：催辦案件通知單（議件）',
+    description: '催辦未依期限辦理的案件',
+    build: () =>
+      make('催辦案件通知單', {
+        sender: { name: COUNCIL },
+        recipient: { name: '○○○　君' },
+        subject: '有關○○○一案，請於○年○月○日前辦理見復。',
+        signature: sign(COUNCIL, ''),
       }),
   },
   {

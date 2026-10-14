@@ -63,6 +63,15 @@ describe('buildPdf', () => {
     expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(1);
   }, 60000);
 
+  it('prints the 開會通知單 agenda on page 2', async () => {
+    const d = { ...sample(), type: '開會通知單' as const };
+    d.meeting = { ...d.meeting, reason: '法制委員會會議', time: '114年4月1日', place: '會議室', agenda: '第十五屆學生議會' };
+    d.explanation = [newItem(0, '主席報告。')];
+    const { bytes, missing } = await buildPdf(d, fonts);
+    expect(missing).toEqual([]);
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(2);
+  }, 30000);
+
   it('draws the motion header, draft page and repeats the table header across pages', async () => {
     const d = { ...sample(), type: '議案關係文書' as const, subject: '擬具草案，是否有當？敬請公決。' };
     d.motion = {

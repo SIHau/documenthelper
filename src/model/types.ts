@@ -1,5 +1,5 @@
 /** 公文文種 */
-export type DocType = '函' | '書函' | '公告' | '開會通知單' | '簽' | '議案關係文書';
+export type DocType = '函' | '書函' | '令' | '公告' | '開會通知單' | '催辦案件通知單' | '簽' | '議案關係文書';
 
 /** 開會通知單專用欄位 */
 export interface Meeting {
@@ -11,7 +11,10 @@ export interface Meeting {
   contact: string;
   attendees: string;
   observers: string;
+  /** 備註；每行一點，匯出時自動加上「一、」「二、」 */
   remarks: string;
+  /** 議程頁標題，每行一列，例：第十五屆學生議會\n法制委員會第一次會議；議程另起一頁 */
+  agenda: string;
 }
 
 /** 行文方向，影響期望語建議（M3） */
@@ -68,6 +71,12 @@ export interface Motion {
   rows: AmendmentRow[];
 }
 
+/** 檔號與保存年限（函頭右上角） */
+export interface Archive {
+  fileNo: string;
+  retention: string;
+}
+
 export type SignatureFont = 'yuji-boku' | 'kai' | 'default';
 
 /** 文末簽名（頭銜、姓名） */
@@ -104,6 +113,7 @@ export interface OfficialDocument {
   /** 副本受文者 */
   ccRecipients: string;
   signature: Signature;
+  archive: Archive;
   meeting: Meeting;
   motion: Motion;
 }

@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import type { OfficialDocument } from '../model/types';
-import { BODY_FONT, BODY_SIZE, SIGNATURE_FONTS, buildBlocks, pageHeader } from './layout';
+import { BODY_FONT, BODY_SIZE, PAGE_NUMBER_PARTS, SIGNATURE_FONTS, buildBlocks, hasPageNumbers, marginXcm, pageHeader } from './layout';
 import type { Block, Run, Table } from './layout';
 
 const esc = (s: string) =>
@@ -33,15 +33,13 @@ function fontDecls(): string {
 
 const ALIGN = { left: 'start', center: 'center', right: 'end' } as const;
 
-/** A4 寬 21cm 減去左右邊界 2cm */
-const CONTENT_CM = 17;
 
 interface Styles {
   paragraphs: string[];
   spans: string[];
 }
 
-function build(blocks: Block[]): { body: string; auto: string } {
+function build(blocks: Block[], contentCm: number): { body: string; auto: string } {
   const st: Styles = { paragraphs: [], spans: [] };
   const spanIndex = new Map<string, string>();
 
@@ -69,10 +67,10 @@ function build(blocks: Block[]): { body: string; auto: string } {
   const table = (t: Table, i: number, spaceBefore: number): string => {
     const name = `Tbl${i + 1}`;
     st.paragraphs.push(
-      `<style:style style:name="${name}" style:family="table"><style:table-properties style:width="${CONTENT_CM}cm" table:align="margins" fo:margin-top="${spaceBefore}pt"/></style:style>`,
+      `<style:style style:name="${name}" style:family="table"><style:table-properties style:width="${contentCm}cm" table:align="margins" fo:margin-top="${spaceBefore}pt"/></style:style>`,
       ...t.columns.map(
         (w, c) =>
-          `<style:style style:name="${name}.C${c}" style:family="table-column"><style:table-column-properties style:column-width="${(w * CONTENT_CM).toFixed(2)}cm"/></style:style>`,
+          `<style:style style:name="${name}.C${c}" style:family="table-column"><style:table-column-properties style:column-width="${(w * contentCm).toFixed(2)}cm"/></style:style>`,
       ),
     );
     const sizeProps = `fo:font-size="${t.size}pt" style:font-size-asian="${t.size}pt"`;
@@ -133,7 +131,7 @@ function build(blocks: Block[]): { body: string; auto: string } {
 }
 
 function contentXml(doc: OfficialDocument): string {
-  const { body, auto } = build(buildBlocks(doc));
+  const { body, auto } = build(buildBlocks(doc), 21 - marginXcm(doc) * 2);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-content ${NS} office:version="1.2">
 ${fontDecls()}
@@ -148,6 +146,9 @@ ${body}
 
 function stylesXml(doc: OfficialDocument): string {
   const header = pageHeader(doc);
+  const footer = hasPageNumbers(doc);
+  const mx = marginXcm(doc);
+  const [p1, p2, p3] = PAGE_NUMBER_PARTS.map(esc);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-styles ${NS} office:version="1.2">
 ${fontDecls()}
@@ -158,14 +159,15 @@ ${fontDecls()}
 </style:default-style>
 <style:style style:name="Standard" style:family="paragraph" style:class="text"/>
 <style:style style:name="Header" style:family="paragraph" style:parent-style-name="Standard" style:class="extra"><style:paragraph-properties fo:text-align="center"/><style:text-properties fo:font-size="12pt" style:font-size-asian="12pt"/></style:style>
+<style:style style:name="Footer" style:family="paragraph" style:parent-style-name="Standard" style:class="extra"><style:paragraph-properties fo:text-align="center"/><style:text-properties fo:font-size="10pt" style:font-size-asian="10pt"/></style:style>
 </office:styles>
 <office:automatic-styles>
 <style:page-layout style:name="pm1">
-<style:page-layout-properties fo:page-width="21cm" fo:page-height="29.7cm" fo:margin-top="${header ? '1.5cm' : '2.5cm'}" fo:margin-bottom="2.5cm" fo:margin-left="2cm" fo:margin-right="2cm"/>${header ? '<style:header-style><style:header-footer-properties fo:min-height="0.5cm" fo:margin-bottom="0.5cm"/></style:header-style>' : ''}
+<style:page-layout-properties fo:page-width="21cm" fo:page-height="29.7cm" fo:margin-top="${header ? '1.5cm' : '2.5cm'}" fo:margin-bottom="${footer ? '1.2cm' : '2.5cm'}" fo:margin-left="${mx}cm" fo:margin-right="${mx}cm"/>${header ? '<style:header-style><style:header-footer-properties fo:min-height="0.5cm" fo:margin-bottom="0.5cm"/></style:header-style>' : ''}${footer ? '<style:footer-style><style:header-footer-properties fo:min-height="0.5cm" fo:margin-top="0.8cm"/></style:footer-style>' : ''}
 </style:page-layout>
 </office:automatic-styles>
 <office:master-styles>
-<style:master-page style:name="Standard" style:page-layout-name="pm1">${header ? `<style:header><text:p text:style-name="Header">${esc(header)}</text:p></style:header>` : ''}</style:master-page>
+<style:master-page style:name="Standard" style:page-layout-name="pm1">${header ? `<style:header><text:p text:style-name="Header">${esc(header)}</text:p></style:header>` : ''}${footer ? `<style:footer><text:p text:style-name="Footer">${p1}<text:page-number text:select-page="current">1</text:page-number>${p2}<text:page-count>1</text:page-count>${p3}</text:p></style:footer>` : ''}</style:master-page>
 </office:master-styles>
 </office:document-styles>`;
 }
