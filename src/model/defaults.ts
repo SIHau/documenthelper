@@ -1,4 +1,4 @@
-import type { OfficialDocument, OutlineItem } from './types';
+import type { AmendmentRow, OfficialDocument, OutlineItem } from './types';
 import { todayIso } from './date';
 
 let seq = 0;
@@ -9,6 +9,10 @@ export function newId(): string {
 
 export function newItem(level = 0, text = ''): OutlineItem {
   return { id: newId(), level, text };
+}
+
+export function newAmendmentRow(): AmendmentRow {
+  return { id: newId(), amended: '', current: '', reason: '' };
 }
 
 export function emptyDocument(type: OfficialDocument['type'] = '函'): OfficialDocument {
@@ -31,5 +35,6 @@ export function emptyDocument(type: OfficialDocument['type'] = '函'): OfficialD
     ccRecipients: '',
     signature: { enabled: true, title: '', name: '', font: 'yuji-boku' },
     meeting: { reason: '', time: '', place: '', chair: '', contact: '', attendees: '', observers: '', remarks: '' },
+    motion: { term: '', proposer: '', cosigners: '', draftTitle: '', mode: '修正', rows: [newAmendmentRow()] },
   };
 }

@@ -1,5 +1,5 @@
 /** 公文文種 */
-export type DocType = '函' | '書函' | '公告' | '開會通知單' | '簽';
+export type DocType = '函' | '書函' | '公告' | '開會通知單' | '簽' | '議案關係文書';
 
 /** 開會通知單專用欄位 */
 export interface Meeting {
@@ -41,6 +41,33 @@ export interface ContactInfo {
   fax: string;
 }
 
+/** 草案對照表的一列：修正（或新訂）條文、現行條文、說明 */
+export interface AmendmentRow {
+  id: string;
+  /** 修正條文（新訂時為條文）；修正案中空白表示刪除該條 */
+  amended: string;
+  /** 現行條文；空白表示新增條文；新訂草案不使用 */
+  current: string;
+  reason: string;
+}
+
+/** 修正：修正條文｜現行條文｜說明；新訂：條文｜說明 */
+export type DraftMode = '修正' | '新訂';
+
+/** 學生議會議案關係文書專用欄位 */
+export interface Motion {
+  /** 屆別，例：十四（頁首顯示「學生議會第十四屆」） */
+  term: string;
+  /** 提案人：議員姓名或黨團名稱 */
+  proposer: string;
+  /** 連署人，以空白或頓號分隔；黨團提案留空 */
+  cosigners: string;
+  /** 草案名稱，例：學生會組織章程修正草案 */
+  draftTitle: string;
+  mode: DraftMode;
+  rows: AmendmentRow[];
+}
+
 export type SignatureFont = 'yuji-boku' | 'kai' | 'default';
 
 /** 文末簽名（頭銜、姓名） */
@@ -78,4 +105,5 @@ export interface OfficialDocument {
   ccRecipients: string;
   signature: Signature;
   meeting: Meeting;
+  motion: Motion;
 }

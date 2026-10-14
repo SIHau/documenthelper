@@ -37,19 +37,19 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     issues.push({ id, severity, where, message });
 
   const sections: Section[] = [
-    ...(cfg.subject ? [{ where: '主旨', text: doc.subject }] : []),
+    ...(cfg.subject ? [{ where: cfg.subjectLabel, text: doc.subject }] : []),
     ...outlineSections(cfg.explanationLabel, doc.explanation),
     ...outlineSections(cfg.measuresLabel, doc.measures),
   ];
   const body = sections.map((s) => s.text).join('\n');
 
   // 必填欄位
-  if (!hasText(doc.sender.name)) add('sender', 'error', '發文機關', '尚未填寫發文機關。');
+  if (cfg.letterhead && !hasText(doc.sender.name)) add('sender', 'error', '發文機關', '尚未填寫發文機關。');
   if (cfg.recipient && !hasText(doc.recipient.name)) {
     add('recipient', 'error', cfg.recipientLabel, `尚未填寫${cfg.recipientLabel}。`);
   }
-  if (!toMinguoText(doc.date)) add('date', 'error', cfg.dateLabel, `${cfg.dateLabel}格式不正確。`);
-  if (cfg.subject && !hasText(doc.subject)) add('subject-empty', 'error', '主旨', '尚未填寫主旨。');
+  if (cfg.letterhead && !toMinguoText(doc.date)) add('date', 'error', cfg.dateLabel, `${cfg.dateLabel}格式不正確。`);
+  if (cfg.subject && !hasText(doc.subject)) add('subject-empty', 'error', cfg.subjectLabel, `尚未填寫${cfg.subjectLabel}。`);
   if (cfg.docNumber && !hasText(doc.docNumber)) add('docnum', 'info', '發文字號', '尚未填寫發文字號。');
   if (cfg.meeting) {
     if (!hasText(doc.meeting.reason)) add('m-reason', 'error', '開會事由', '尚未填寫開會事由。');
@@ -62,7 +62,32 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
   if (doc.type === '簽' && !doc.measures.some((i) => hasText(i.text))) {
     add('plan', 'warn', '擬辦', '簽通常需寫明擬辦事項。');
   }
-  if (doc.signature.enabled && hasText(doc.signature.title) && !hasText(doc.signature.name)) {
+  if (cfg.motion) {
+    const m = doc.motion;
+    const where = '提案人與連署人';
+    if (!hasText(m.term)) add('motion-term', 'warn', '屆別', '尚未填寫屆別，頁首會顯示「學生議會第○屆」。');
+    if (!hasText(m.proposer)) add('motion-proposer', 'error', where, '尚未填寫提案人。');
+    const cosigners = m.cosigners.split(/[\s、，,]+/).filter(Boolean);
+    if (cosigners.length === 1) add('motion-cosigners', 'warn', where, '議員提案須三人以上（提案人連同連署人），目前只有一位連署人。');
+    if (hasText(doc.subject) && !/公決/.test(doc.subject)) {
+      add('motion-ending', 'info', '案由', '案由結尾通常為「是否有當？敬請公決。」');
+    }
+    const table = '草案對照表';
+    const filled = m.rows.filter((r) => hasText(r.amended) || hasText(r.current) || hasText(r.reason));
+    if (filled.length && !hasText(m.draftTitle)) add('draft-title', 'error', table, '尚未填寫草案名稱。');
+    if (hasText(m.draftTitle) && !filled.length) add('draft-rows', 'error', table, '草案對照表沒有任何條文。');
+    filled.forEach((r, i) => {
+      const n = `第 ${i + 1} 列`;
+      if (m.mode === '新訂' ? !hasText(r.amended) : !hasText(r.amended) && !hasText(r.current)) {
+        add(`draft-text:${r.id}`, 'error', table, m.mode === '新訂' ? `${n}尚未填寫條文。` : `${n}的修正條文與現行條文都是空白。`);
+      }
+      if (!hasText(r.reason)) add(`draft-reason:${r.id}`, 'warn', table, `${n}尚未填寫說明。`);
+      if (m.mode === '修正' && hasText(r.amended) && r.amended.trim() === r.current.trim()) {
+        add(`draft-same:${r.id}`, 'warn', table, `${n}的修正條文與現行條文相同。`);
+      }
+    });
+  }
+  if (cfg.letterhead && doc.signature.enabled && hasText(doc.signature.title) && !hasText(doc.signature.name)) {
     add('sign-name', 'warn', '簽名', '已填頭銜但未填姓名。');
   }
   if (hasText(doc.contact.email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(doc.contact.email.trim())) {
@@ -73,9 +98,9 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
   if (cfg.subject && hasText(doc.subject)) {
     const subject = doc.subject.trim();
     if (subject.length > SUBJECT_MAX) {
-      add('subject-long', 'info', '主旨', `主旨共 ${subject.length} 字，建議力求簡明（約 ${SUBJECT_MAX} 字內）。`);
+      add('subject-long', 'info', cfg.subjectLabel, `${cfg.subjectLabel}共 ${subject.length} 字，建議力求簡明（約 ${SUBJECT_MAX} 字內）。`);
     }
-    if (!/[。]$/.test(subject)) add('subject-period', 'info', '主旨', '主旨結尾建議加上句號。');
+    if (!/[。]$/.test(subject)) add('subject-period', 'info', cfg.subjectLabel, `${cfg.subjectLabel}結尾建議加上句號。`);
     if (cfg.expectation && !/(請|敬請|謹請|函請)[^，。；：]*。?$/.test(subject)) {
       add('subject-expect', 'warn', '主旨', '主旨結尾缺少期望語（如：請查照、請鑒核）。');
     }
@@ -98,10 +123,10 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
   // 附件
   const mentionsAttachment = /附件|如附|檢附|檢送|隨函/.test(body);
   const hasAttachment = hasText(doc.attachments) && !/^(無|无)$/.test(doc.attachments.trim());
-  if (mentionsAttachment && !hasAttachment) {
+  if (cfg.letterhead && mentionsAttachment && !hasAttachment) {
     add('att-missing', 'warn', '附件', '內文提到附件，但「附件」欄為空或填「無」。');
   }
-  if (hasAttachment && !mentionsAttachment) {
+  if (cfg.letterhead && hasAttachment && !mentionsAttachment) {
     add('att-unmentioned', 'info', '附件', '附件欄已填寫，但主旨或內文未提及附件。');
   }
 
@@ -110,6 +135,11 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     ...sections.filter((s) => s.text.includes('○')).map((s) => s.where),
     ...(doc.attachments.includes('○') ? ['附件'] : []),
     ...(cfg.meeting && Object.values(doc.meeting).some((v) => v.includes('○')) ? ['開會資訊'] : []),
+    ...(cfg.motion &&
+    [doc.motion.term, doc.motion.proposer, doc.motion.cosigners, doc.motion.draftTitle,
+      ...doc.motion.rows.flatMap((r) => [r.amended, r.current, r.reason])].some((v) => v.includes('○'))
+      ? ['議案關係文書']
+      : []),
   ];
   for (const where of new Set(placeholderWhere)) {
     add(`placeholder:${where}`, 'warn', where, '尚有未填寫的「○」，請補上實際內容。');

@@ -1,4 +1,4 @@
-import { emptyDocument, newItem } from '../model/defaults';
+import { emptyDocument, newAmendmentRow, newItem } from '../model/defaults';
 import type { DocType, OfficialDocument } from '../model/types';
 
 export interface BuiltinTemplate {
@@ -84,6 +84,42 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
         subject: '為辦理○○○，簽請核示。',
         explanation: [newItem(0, '依據○○○辦理。'), newItem(0, '○○○。')],
         measures: [newItem(0, '擬准所請，奉核後辦理。')],
+      }),
+  },
+  {
+    id: 'builtin:motion-members',
+    name: '議案關係文書：議員提案（修正草案）',
+    description: '三人以上議員提案，附修正條文對照表',
+    build: () =>
+      make('議案關係文書', {
+        subject: '本會議員○○○等三人，鑒於○○○，擬具「○○○」修正草案，是否有當？敬請公決。',
+        explanation: [newItem(0, '○○○。'), newItem(0, '○○○。')],
+        motion: {
+          term: '○',
+          proposer: '○○○',
+          cosigners: '○○○ ○○○',
+          draftTitle: '○○○修正草案',
+          mode: '修正',
+          rows: [{ ...newAmendmentRow(), amended: '第○條　○○○。', current: '第○條　○○○。', reason: '一、○○○。' }],
+        },
+      }),
+  },
+  {
+    id: 'builtin:motion-caucus',
+    name: '議案關係文書：黨團提案（新訂草案）',
+    description: '黨團提案，附新訂條文與說明',
+    build: () =>
+      make('議案關係文書', {
+        subject: '本會○○黨團鑒於○○○，擬具「○○○」草案，是否有當？敬請公決。',
+        explanation: [newItem(0, '依《○○○》第○條擬定之。')],
+        motion: {
+          term: '○',
+          proposer: '○○黨團',
+          cosigners: '',
+          draftTitle: '○○○草案',
+          mode: '新訂',
+          rows: [{ ...newAmendmentRow(), amended: '第一條　○○○。', reason: '一、○○○。' }],
+        },
       }),
   },
 ];
