@@ -15,6 +15,9 @@ interface Props {
   onRemove: (r: DraftRecord) => void;
   onExportAll: () => void;
   onImportAll: (file: File) => void;
+  /** 單一稿件檔（JSON）：匯出目前稿件、開啟別人傳來的稿件 */
+  onExportFile: () => void;
+  onOpenFile: (file: File) => void;
 }
 
 const fmt = (t: number) => new Date(t).toLocaleString('zh-TW', { hour12: false });
@@ -23,6 +26,7 @@ export function HistoryPanel(p: Props) {
   const [query, setQuery] = useState('');
   const [type, setType] = useState<'' | DocType>('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const draftFileRef = useRef<HTMLInputElement>(null);
 
   const list = p.drafts
     .filter((r) => (!type || r.doc.type === type) && matchDraft(r, query))
@@ -33,6 +37,10 @@ export function HistoryPanel(p: Props) {
       <div className="data-bar">
         <button type="button" onClick={p.onSave}>{p.currentId ? '儲存變更' : '儲存至歷史'}</button>
         <button type="button" onClick={p.onNew}>新增空白稿</button>
+        <button type="button" title="把目前稿件存成 .json 檔，可傳給別人接手編輯" onClick={p.onExportFile}>匯出稿件檔</button>
+        <button type="button" title="開啟別人傳來（或自己匯出）的稿件檔" onClick={() => draftFileRef.current?.click()}>開啟稿件檔</button>
+        <input ref={draftFileRef} type="file" accept=".json,application/json" hidden
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onOpenFile(f); e.target.value = ''; }} />
       </div>
       <div className="data-bar">
         <input type="search" placeholder="搜尋主旨、受文者、字號、內容…" value={query} onChange={(e) => setQuery(e.target.value)} />

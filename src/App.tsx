@@ -16,6 +16,7 @@ import { exportFileName } from './export/layout';
 import { isDesktop, saveFile } from './platform';
 import { DialogHost, alertDialog, confirmDialog } from './dialogs';
 import { checkDocument } from './rules';
+import { DRAFT_FILE_MIME, parseDraftFile, serializeDraft } from './model/draftFile';
 import { insertAtCursor, isInsertable } from './phrases/insert';
 import type { TextField } from './phrases/insert';
 import { useRecords } from './db/useRecords';
@@ -141,6 +142,19 @@ export function App() {
   const saveAsTemplate = (name: string) =>
     templates.save({ id: newId(), name, doc, createdAt: Date.now() });
 
+  // ---- 稿件檔（單一稿件的 JSON）
+  const exportDraftFile = async () => {
+    await saveFile(new Blob([serializeDraft(doc)], { type: DRAFT_FILE_MIME }), exportFileName(doc, 'json'), DRAFT_FILE_MIME);
+  };
+  const openDraftFile = async (file: File) => {
+    try {
+      const next = parseDraftFile(await file.text());
+      if (await confirmDiscard()) load(next, null, false);
+    } catch (e) {
+      await alertDialog(`開啟稿件檔失敗：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   // ---- 備份
   const backupAll = async () => {
     const data = await exportAll();
@@ -243,6 +257,8 @@ export function App() {
             onRemove={removeDraft}
             onExportAll={run(backupAll)}
             onImportAll={restoreAll}
+            onExportFile={run(exportDraftFile)}
+            onOpenFile={openDraftFile}
           />
         )}
         {tab === 'templates' && (

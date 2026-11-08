@@ -162,6 +162,22 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     }
   }
 
+  // 限期
+  if (hasText(doc.limit)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(doc.limit)) {
+      add('limit-format', 'warn', '限期辦理', '限期日期格式不正確。');
+    } else {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(doc.date) && doc.limit < doc.date) {
+        add('limit-past', 'warn', '限期辦理', '限期早於發文日期，請確認。');
+      }
+      // 內文要寫明限期：例「請於114年11月20日前辦理」
+      const limitText = toMinguoText(doc.limit).replace('中華民國', '');
+      if (limitText && !body.replace(/\s/g, '').includes(limitText)) {
+        add('limit-unmentioned', 'info', '限期辦理', `已設定限期，但主旨或內文沒有寫到 ${limitText}，建議寫明（例：請於${limitText}前辦理）。`);
+      }
+    }
+  }
+
   // 附件
   const mentionsAttachment = /附件|如附|檢附|檢送|隨函/.test(body);
   const hasAttachment = hasText(doc.attachments) && !/^(無|无)$/.test(doc.attachments.trim());

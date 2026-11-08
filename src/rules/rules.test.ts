@@ -103,4 +103,11 @@ describe('checkDocument', () => {
     const order = checkDocument(letter({ sender: { name: '' }, subject: '有關一案' })).map((i) => i.severity);
     expect(order).toEqual([...order].sort((a, b) => 'ewi'.indexOf(a[0]) - 'ewi'.indexOf(b[0])));
   });
+
+  it('checks the limit date', () => {
+    expect(ids(letter({ limit: '2025-03-10' }))).toContain('limit-past');
+    expect(ids(letter({ limit: '2025-04-01' }))).toContain('limit-unmentioned');
+    expect(ids(letter({ limit: '2025-04-01', explanation: [newItem(0, '請於114年4月1日前辦理。')] }))).toEqual([]);
+    expect(ids(letter({ limit: '' }))).toEqual([]);
+  });
 });

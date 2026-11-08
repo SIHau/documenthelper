@@ -11,6 +11,7 @@ export function instantiate(saved: OfficialDocument, today = todayIso()): Offici
     ...d,
     date: today,
     docNumber: '',
+    limit: '',
     explanation: freshIds(d.explanation),
     measures: freshIds(d.measures),
   };
@@ -24,7 +25,7 @@ export function draftTitle(doc: OfficialDocument): string {
 /** 是否為尚未填寫任何內容的空白稿 */
 export function isBlank(doc: OfficialDocument): boolean {
   const texts = [
-    doc.subject, doc.sender.name, doc.recipient.name, doc.docNumber, doc.attachments,
+    doc.subject, doc.sender.name, doc.recipient.name, doc.docNumber, doc.attachments, doc.limit,
     doc.primaryRecipients, doc.ccRecipients, doc.signature.name,
     ...Object.values(doc.meeting),
     ...doc.explanation.map((i) => i.text),

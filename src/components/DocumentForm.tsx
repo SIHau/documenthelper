@@ -9,6 +9,9 @@ import { MinutesCaseEditor } from './MinutesCaseEditor';
 import { BudgetItemEditor } from './BudgetItemEditor';
 import { confirmDialog } from '../dialogs';
 import { COUNCIL_WORDS, defaultWord, nextDocNumber } from '../model/docNumber';
+import { processDeadline } from '../model/deadline';
+import { toMinguoText } from '../model/date';
+import { newItem } from '../model/defaults';
 
 interface Props {
   doc: OfficialDocument;
@@ -62,6 +65,30 @@ const RECORD_FIELDS: Record<'minutes' | 'signin', Array<[MeetingKey, string, boo
   ],
 };
 
+/** 把限期寫進說明：「請於中華民國○年○月○日前辦理。」；說明只有一個空白項時直接填入 */
+function limitSentence(limit: string): string {
+  const t = toMinguoText(limit);
+  return t ? `請於${t}前辦理。` : '';
+}
+
+function DeadlineHint({ doc, canWrite, onWrite }: { doc: OfficialDocument; canWrite: boolean; onWrite: () => void }) {
+  const d = processDeadline(doc.date, doc.urgency, doc.limit);
+  if (!d) return null;
+  const sentence = limitSentence(doc.limit);
+  const written = !!sentence && doc.explanation.some((i) => i.text.includes(sentence));
+  return (
+    <div className="deadline-hint">
+      {d.basis === 'limit'
+        ? `以限期為準：${toMinguoText(d.due)}（比速別的 ${d.days} 個工作天更早）`
+        : `${doc.urgency || '普通件'}：收文後 ${d.days} 個工作天內辦理；若發文當天收文，期限為 ${toMinguoText(d.due)}`}
+      <span className="deadline-note">（只排除週六日，不含國定假日）</span>
+      {sentence && !written && canWrite && (
+        <button type="button" onClick={onWrite}>把限期寫進說明</button>
+      )}
+    </div>
+  );
+}
+
 export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: Props) {
   const findAgency = (name: string) => agencies.find((a) => a.name === name.trim());
   /** 發文機關：名稱完全符合通訊錄時，帶入代碼、地址與聯絡資料（只補空白欄位） */
@@ -83,6 +110,12 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
     onChange({ ...doc, [key]: value });
   const setContact = (key: keyof OfficialDocument['contact'], value: string) =>
     onChange({ ...doc, contact: { ...doc.contact, [key]: value } });
+  const writeLimit = () => {
+    const sentence = limitSentence(doc.limit);
+    if (!sentence) return;
+    const only = doc.explanation.length === 1 && !doc.explanation[0].text.trim();
+    set('explanation', only ? [{ ...doc.explanation[0], text: sentence }] : [...doc.explanation, newItem(0, sentence)]);
+  };
   const setMotion = <K extends keyof OfficialDocument['motion']>(key: K, value: OfficialDocument['motion'][K]) =>
     onChange({ ...doc, motion: { ...doc.motion, [key]: value } });
   const setMeeting = (key: keyof OfficialDocument['meeting'], value: string) =>
@@ -146,6 +179,10 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
                   <option>密</option><option>機密</option><option>極機密</option><option>絕對機密</option>
                 </select>
               </Field>
+              <Field label="限期辦理（選填）">
+                <input type="date" value={doc.limit} onChange={(e) => set('limit', e.target.value)} />
+              </Field>
+              <DeadlineHint doc={doc} canWrite={!!cfg.explanationLabel} onWrite={writeLimit} />
             </>
           )}
           {cfg.letterhead && (

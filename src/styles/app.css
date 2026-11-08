@@ -93,3 +93,9 @@ button:disabled { opacity: .4; cursor: default; }
 .modal-msg { margin: 0 0 12px; white-space: pre-wrap; line-height: 1.5; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 button.primary { background: #1a4f8b; color: #fff; border-color: #1a4f8b; }
+
+.deadline-hint { grid-column: 1 / -1; font-size: 13px; color: #444; background: #f4f7fb; border-left: 3px solid #1a4f8b; padding: 6px 10px; border-radius: 3px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.deadline-note { color: #777; }
+.law-import { background: #fff; border: 1px solid #1a4f8b; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.law-import-toggle { margin-bottom: 10px; }
+.law-pick { max-height: 220px; overflow: auto; border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; }

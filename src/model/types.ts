@@ -178,6 +178,8 @@ export interface OfficialDocument {
   secrecy: Secrecy;
   /** 附件說明 */
   attachments: string;
+  /** 限期辦理：請受文者於這一天前辦理（YYYY-MM-DD），選填 */
+  limit: string;
   subject: string;
   explanation: OutlineItem[];
   /** 辦法（函）／擬辦（簽） */

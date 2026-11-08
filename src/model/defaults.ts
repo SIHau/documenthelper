@@ -36,6 +36,7 @@ export function emptyDocument(type: OfficialDocument['type'] = '函'): OfficialD
     urgency: '普通件',
     secrecy: '',
     attachments: '',
+    limit: '',
     subject: '',
     explanation: [newItem()],
     measures: [],
