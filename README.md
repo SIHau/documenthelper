@@ -181,6 +181,26 @@ npm run dev
 
 桌面版與網頁版的資料是各自獨立的；要在兩者之間搬移，請用備份與還原。
 
+## 讓 AI 使用公文小幫手（Skill 與命令列）
+
+專案附有 Claude 的 skill：`.claude/skills/documenthelper/`。在這個專案裡使用 Claude Code 時會自動載入，AI 就能代您起稿、檢查、預覽與匯出公文，不必開網頁：
+
+> 「幫我寫一份函給○○局，請他們提供活動場地使用時間，限期 11 月 20 日，輸出成 PDF。」
+
+AI 會依 skill 的流程：釐清缺少的資訊 → 用範本或 `dh new` 起稿 → 填寫稿件 JSON → `dh check` 檢查並修正 → `dh preview` 給您確認 → `dh render` 匯出，同時留下稿件檔，您可以在「稿件 → 開啟稿件檔」匯入繼續編輯。
+
+背後是同一份程式的命令列（`cli/dh.ts`），結果與網頁、桌面版完全一致，也可以自己用：
+
+```bash
+npm ci
+bash .claude/skills/documenthelper/scripts/dh.sh help             # 所有指令
+bash .claude/skills/documenthelper/scripts/dh.sh new 函 --sender "○○機關" --recipient "○○單位" > draft.json
+bash .claude/skills/documenthelper/scripts/dh.sh check draft.json
+bash .claude/skills/documenthelper/scripts/dh.sh render draft.json --format pdf --out out
+```
+
+（也可以用 `npm run dh -- <指令>`。）若把 skill 複製到別的專案或 `~/.claude/skills/`，請設定環境變數 `DOCUMENTHELPER_DIR` 指向本專案根目錄。skill 要求 AI 不得編造機關、人名、字號與日期，缺資料時先詢問或以「○」標示並提醒補齊。
+
 ## 常見問題
 
 **為什麼 PDF 的字體不是標楷體？**
@@ -222,5 +242,7 @@ npm run desktop:build  # 產生桌面版安裝檔（位於 src-tauri/target/rele
 | `src/db/` | IndexedDB、通訊錄 CSV、備份還原 |
 | `src/components/` | 介面元件 |
 | `src-tauri/` | 桌面版（Tauri） |
+| `cli/` | 命令列 `dh`（起稿、檢查、預覽、匯出），給 AI skill 與腳本使用 |
+| `.claude/skills/documenthelper/` | 讓 AI 使用公文小幫手的 skill：流程、欄位說明、撰寫指引與範例稿件 |
 
 檢查規則與用語可直接調整：`src/rules/index.ts`、`src/rules/colloquial.ts`、`src/data/phrases.ts`；文種欄位設定在 `src/model/docTypes.ts`。

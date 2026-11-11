@@ -1,0 +1,14 @@
+{
+  "type": "簽",
+  "direction": "上行",
+  "sender": { "name": "學生會秘書處" },
+  "recipient": { "name": "學生會會長" },
+  "date": "2026-11-09",
+  "subject": "為辦理115學年度第二學期社團博覽會，簽請核示。",
+  "explanation": [
+    { "level": 0, "text": "社團博覽會預定於中華民國115年12月15日舉行。" },
+    { "level": 0, "text": "所需經費新臺幣5,000元，由本會活動費支應。" }
+  ],
+  "measures": [{ "level": 0, "text": "擬准所請，奉核後依預算執行。" }],
+  "signature": { "enabled": true, "title": "秘書長", "name": "李小華", "font": "yuji-boku" }
+}

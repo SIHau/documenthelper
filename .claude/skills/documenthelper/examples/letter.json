@@ -1,0 +1,53 @@
+{
+  "type": "函",
+  "direction": "平行",
+  "sender": {
+    "name": "○○市立○○高級中學學生會"
+  },
+  "senderAddress": "○○市○○區○○路1號",
+  "contact": {
+    "person": "王小明",
+    "phone": "02-12345678",
+    "email": "student@example.edu.tw",
+    "fax": ""
+  },
+  "recipient": {
+    "name": "○○市立○○高級中學學生議會"
+  },
+  "date": "2026-11-09",
+  "docNumber": "會字第1151109001號",
+  "urgency": "普通件",
+  "attachments": "活動企劃書1份",
+  "limit": "2026-11-20",
+  "subject": "檢送本會115學年度第二學期活動企劃書1份，請查照。",
+  "explanation": [
+    {
+      "level": 0,
+      "text": "本會為辦理學生活動，依據學生會組織章程第五條規定提出企劃。"
+    },
+    {
+      "level": 0,
+      "text": "企劃書重點如下："
+    },
+    {
+      "level": 1,
+      "text": "活動日期：中華民國116年3月10日。"
+    },
+    {
+      "level": 1,
+      "text": "活動地點：本校活動中心。"
+    },
+    {
+      "level": 0,
+      "text": "請於中華民國115年11月20日前惠復意見。"
+    }
+  ],
+  "primaryRecipients": "○○市立○○高級中學學生議會",
+  "ccRecipients": "本會秘書處",
+  "signature": {
+    "enabled": true,
+    "title": "學生會會長",
+    "name": "王小明",
+    "font": "yuji-boku"
+  }
+}
