@@ -436,10 +436,10 @@ export function buildBlocks(doc: OfficialDocument): Block[] {
     }
   };
 
-  // 右上角檔號、保存年限（10pt，左緣對齊）
+  // 右上角檔號、保存年限（10pt，靠右，與承辦人等聯絡資料右緣齊平）
   if (cfg.filing) {
-    line(`檔　　號：${doc.archive.fileNo}`, { indentEm: 20 }, { size: ARCHIVE_SIZE });
-    line(`保存年限：${doc.archive.retention}`, { indentEm: 20 }, { size: ARCHIVE_SIZE });
+    line(`檔　　號：${doc.archive.fileNo}`, { align: 'right' }, { size: ARCHIVE_SIZE });
+    line(`保存年限：${doc.archive.retention}`, { align: 'right' }, { size: ARCHIVE_SIZE });
   }
 
   line(`${doc.sender.name || '（發文機關）'}　${doc.type}`, { align: 'center', spaceBefore: cfg.filing ? 4 : 0 }, { size: TITLE_SIZE });
