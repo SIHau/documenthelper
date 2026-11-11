@@ -9,9 +9,8 @@ import { MinutesCaseEditor } from './MinutesCaseEditor';
 import { BudgetItemEditor } from './BudgetItemEditor';
 import { confirmDialog } from '../dialogs';
 import { COUNCIL_WORDS, defaultWord, nextDocNumber } from '../model/docNumber';
-import { processDeadline } from '../model/deadline';
+import { addLimitToSubject, limitDateText, processDeadline } from '../model/deadline';
 import { toMinguoText } from '../model/date';
-import { newItem } from '../model/defaults';
 
 interface Props {
   doc: OfficialDocument;
@@ -65,29 +64,25 @@ const RECORD_FIELDS: Record<'minutes' | 'signin', Array<[MeetingKey, string, boo
   ],
 };
 
-/** 把限期寫進說明：「請於中華民國○年○月○日前辦理。」；說明只有一個空白項時直接填入 */
-function limitSentence(limit: string): string {
-  const t = toMinguoText(limit);
-  return t ? `請於${t}前辦理。` : '';
-}
-
 function DeadlineHint({ doc, canWrite, onWrite }: { doc: OfficialDocument; canWrite: boolean; onWrite: () => void }) {
   const d = processDeadline(doc.date, doc.urgency, doc.limit);
   if (!d) return null;
-  const sentence = limitSentence(doc.limit);
-  const written = !!sentence && doc.explanation.some((i) => i.text.includes(sentence));
+  const limited = !!limitDateText(doc.limit);
+  const written = limited && doc.subject.replace(/\s/g, '').includes(limitDateText(doc.limit));
   return (
     <div className="deadline-hint">
-      {d.basis === 'limit'
-        ? `以限期為準：${toMinguoText(d.due)}（比速別的 ${d.days} 個工作天更早）`
+      {limited
+        ? `限期公文：請受文者於 ${toMinguoText(doc.limit)} 前辦理。限期要寫在主旨，速別留空。`
         : `${doc.urgency || '普通件'}：收文後 ${d.days} 個工作天內辦理；若發文當天收文，期限為 ${toMinguoText(d.due)}`}
       <span className="deadline-note">（只排除週六日，不含國定假日）</span>
-      {sentence && !written && canWrite && (
-        <button type="button" onClick={onWrite}>把限期寫進說明</button>
+      {limited && !written && canWrite && hasText(doc.subject) && (
+        <button type="button" onClick={onWrite}>把限期寫進主旨</button>
       )}
     </div>
   );
 }
+
+const hasText = (s: string) => s.trim().length > 0;
 
 export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: Props) {
   const findAgency = (name: string) => agencies.find((a) => a.name === name.trim());
@@ -110,12 +105,7 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
     onChange({ ...doc, [key]: value });
   const setContact = (key: keyof OfficialDocument['contact'], value: string) =>
     onChange({ ...doc, contact: { ...doc.contact, [key]: value } });
-  const writeLimit = () => {
-    const sentence = limitSentence(doc.limit);
-    if (!sentence) return;
-    const only = doc.explanation.length === 1 && !doc.explanation[0].text.trim();
-    set('explanation', only ? [{ ...doc.explanation[0], text: sentence }] : [...doc.explanation, newItem(0, sentence)]);
-  };
+  const writeLimit = () => set('subject', addLimitToSubject(doc.subject, doc.limit));
   const setMotion = <K extends keyof OfficialDocument['motion']>(key: K, value: OfficialDocument['motion'][K]) =>
     onChange({ ...doc, motion: { ...doc.motion, [key]: value } });
   const setMeeting = (key: keyof OfficialDocument['meeting'], value: string) =>
@@ -155,7 +145,7 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
           {cfg.letterhead && (
             <Field label="行文方向">
               <select value={doc.direction} onChange={(e) => set('direction', e.target.value as Direction)}>
-                <option>上行</option><option>平行</option><option>下行</option>
+                <option>上行</option><option>平行</option><option>下行</option><option>斜行</option>
               </select>
             </Field>
           )}
@@ -180,9 +170,14 @@ export function DocumentForm({ doc, agencies, onChange, onReset, usedNumbers }: 
                 </select>
               </Field>
               <Field label="限期辦理（選填）">
-                <input type="date" value={doc.limit} onChange={(e) => set('limit', e.target.value)} />
+                <input type="date" value={doc.limit}
+                  onChange={(e) => {
+                    // 定有辦理或復文期限的公文不填速別；清掉限期時還原預設
+                    const limit = e.target.value;
+                    onChange({ ...doc, limit, urgency: limit ? '' : doc.urgency || '普通件' });
+                  }} />
               </Field>
-              <DeadlineHint doc={doc} canWrite={!!cfg.explanationLabel} onWrite={writeLimit} />
+              <DeadlineHint doc={doc} canWrite={cfg.subject} onWrite={writeLimit} />
             </>
           )}
           {cfg.letterhead && (

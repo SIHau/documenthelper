@@ -43,7 +43,7 @@ describe('buildBlocks per doc type', () => {
     const d = { ...sample(), type: '公告' as const, measures: [newItem(0, '公告內容。')] };
     const t = texts(d);
     expect(t).toContain('依據：');
-    expect(t).toContain('說明：');
+    expect(t).toContain('說明：公告內容。'); // 只有一項：不冠編號，緊接段名
     expect(t.some((x) => x.startsWith('檔　　號'))).toBe(false);
     expect(t.some((x) => x.startsWith('受文者'))).toBe(false);
     expect(t[0]).toContain('公告');
@@ -52,9 +52,9 @@ describe('buildBlocks per doc type', () => {
   it('簽 puts 敬陳 at the end, before the signature', () => {
     const d = { ...sample(), type: '簽' as const, recipient: { name: '校長' }, measures: [newItem(0, '擬照辦。')] };
     const t = texts(d);
-    expect(t).toContain('擬辦：');
+    expect(t).toContain('擬辦：擬照辦。');
     expect(t.some((x) => x.startsWith('受文者'))).toBe(false);
-    expect(t.indexOf('敬陳　校長')).toBeGreaterThan(t.indexOf('擬辦：'));
+    expect(t.indexOf('敬陳　校長')).toBeGreaterThan(t.indexOf('擬辦：擬照辦。'));
     expect(t.indexOf('敬陳　校長')).toBeLessThan(t.length - 1);
   });
 
@@ -173,6 +173,30 @@ describe('議案關係文書', () => {
     expect(xml).toContain('<w:pageBreakBefore/>');
     const headers = Object.keys(docx.files).filter((f) => /word\/header\d*\.xml/.test(f));
     expect(await docx.file(headers[0])!.async('string')).toContain('學生議會第十四屆');
+  });
+});
+
+describe('分項寫法（文書處理手冊）', () => {
+  const texts = (d: OfficialDocument) => buildBlocks(d).map((b) => b.runs.map((r) => r.text).join(''));
+  const base = (explanation: OfficialDocument['explanation']) => ({ ...sample(), explanation });
+
+  it('單一項說明不冠編號、不換行，緊接「說明：」', () => {
+    const t = texts(base([newItem(0, '依據來文辦理。')]));
+    expect(t).toContain('說明：依據來文辦理。');
+    expect(t.some((x) => x.startsWith('一、'))).toBe(false);
+    expect(t).not.toContain('說明：');
+  });
+
+  it('兩項以上才冠編號並另列縮格，第三層起用全形數字', () => {
+    const t = texts(base([newItem(0, '甲。'), newItem(1, '乙。'), newItem(2, '丙。'), newItem(3, '丁。')]));
+    expect(t).toContain('說明：');
+    expect(t).toEqual(expect.arrayContaining(['一、甲。', '(一)乙。', '１、丙。', '(１)丁。']));
+  });
+
+  it('單一項但有子項時仍視為分項', () => {
+    const t = texts(base([newItem(0, '甲。'), newItem(1, '乙。')]));
+    expect(t).toContain('說明：');
+    expect(t).toContain('一、甲。');
   });
 });
 

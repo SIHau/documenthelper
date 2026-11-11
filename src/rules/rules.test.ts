@@ -105,9 +105,12 @@ describe('checkDocument', () => {
   });
 
   it('checks the limit date', () => {
-    expect(ids(letter({ limit: '2025-03-10' }))).toContain('limit-past');
-    expect(ids(letter({ limit: '2025-04-01' }))).toContain('limit-unmentioned');
-    expect(ids(letter({ limit: '2025-04-01', explanation: [newItem(0, '請於114年4月1日前辦理。')] }))).toEqual([]);
+    expect(ids(letter({ limit: '2025-03-10', urgency: '' }))).toContain('limit-past');
+    // 定有期限的公文要在主旨敘明，速別留空
+    expect(ids(letter({ limit: '2025-04-01', urgency: '' }))).toContain('limit-unmentioned');
+    expect(ids(letter({ limit: '2025-04-01', urgency: '', explanation: [newItem(0, '請於114年4月1日前辦理。')] }))).toContain('limit-unmentioned');
+    expect(ids(letter({ limit: '2025-04-01', urgency: '', subject: '有關提供日程一案，於114年4月1日前辦理，請查照。' }))).toEqual([]);
+    expect(ids(letter({ limit: '2025-04-01', subject: '有關提供日程一案，於114年4月1日前辦理，請查照。' }))).toEqual(['limit-urgency']);
     expect(ids(letter({ limit: '' }))).toEqual([]);
   });
 });

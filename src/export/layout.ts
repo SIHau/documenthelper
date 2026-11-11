@@ -170,6 +170,11 @@ export const PAGE_NUMBER_PARTS = ['第 ', ' 頁 共 ', ' 頁'] as const;
 function outlineBlocks(label: string | null, items: OfficialDocument['explanation'], spaceBefore = 12, base = 0): Block[] {
   const numbered = numberItems(items).filter((it) => it.text.trim());
   if (!numbered.length) return [];
+  // 只有一項時不冠編號、不換行，文字緊接段名冒號之右（文書處理手冊：「如無項次，文字緊接段名冒號之右書寫」）
+  if (label && numbered.length === 1) {
+    const em = [...label].length + 1;
+    return [{ runs: [{ text: `${label}：` }, { text: numbered[0].text }], indentEm: base + em, hangingEm: em, spaceBefore }];
+  }
   const out: Block[] = [];
   if (label) out.push({ runs: [{ text: label + '：' }], spaceBefore });
   numbered.forEach((it, i) => {

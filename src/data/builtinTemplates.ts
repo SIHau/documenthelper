@@ -24,8 +24,8 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     build: () =>
       make('函', {
         subject: '檢送○○○一案，請查照。',
-        explanation: [newItem(0, '依據貴單位○年○月○日○○字第○○○號函辦理。'), newItem(0, '檢附○○○一份，請查收。')],
-        attachments: '○○○一份',
+        explanation: [newItem(0, '依據貴單位○年○月○日○○字第○○○號函辦理。'), newItem(0, '檢附○○○1份，請查收。')],
+        attachments: '○○○1份',
       }),
   },
   {

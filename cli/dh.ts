@@ -29,10 +29,10 @@ const HELP = `公文小幫手命令列（dh）
 起稿
   types                          列出文種，以及各文種使用的欄位（JSON）
   new <文種> [選項]              產生空白稿件（JSON，輸出到標準輸出）
-      --sender 機關  --recipient 受文者  --date YYYY-MM-DD  --direction 上行|平行|下行
+      --sender 機關  --recipient 受文者  --date YYYY-MM-DD  --direction 上行|平行|下行|斜行
   templates                      列出內建範本
   templates show <id> [--date YYYY-MM-DD]   由內建範本產生稿件（JSON）
-  phrases [上行|平行|下行]       用語庫：期望語與常用句型
+  phrases [上行|平行|下行|斜行]       用語庫：期望語與常用句型
 
 檢查與預覽
   check <稿件.json> [--json]     格式與用語檢查；有「錯誤」時結束代碼為 1
@@ -159,7 +159,7 @@ async function main(): Promise<number> {
       if (a.str('date')) doc.date = requireDate(a.str('date'));
       const dir = a.str('direction');
       if (dir) {
-        if (!['上行', '平行', '下行'].includes(dir)) throw new UsageError('--direction 必須是 上行、平行 或 下行');
+        if (!['上行', '平行', '下行', '斜行'].includes(dir)) throw new UsageError('--direction 必須是 上行、平行、下行 或 斜行');
         doc.direction = dir as Direction;
       }
       out(serializeDraft(doc));
@@ -180,7 +180,7 @@ async function main(): Promise<number> {
 
     case 'phrases': {
       const dir = a.positional[0] as Direction | undefined;
-      if (dir && !(dir in EXPECTATIONS)) throw new UsageError('方向必須是 上行、平行 或 下行');
+      if (dir && !(dir in EXPECTATIONS)) throw new UsageError('方向必須是 上行、平行、下行 或 斜行');
       json({
         期望語: dir ? { [dir]: EXPECTATIONS[dir] } : EXPECTATIONS,
         常用句型: PHRASE_GROUPS.map((g) => ({ 類別: g.title, 用語: g.phrases })),

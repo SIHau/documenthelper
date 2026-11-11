@@ -56,3 +56,26 @@ export function processDeadline(receivedDate: string, urgency: Urgency, limit = 
   if (parse(limit) !== null && limit < byUrgency) return { due: limit, basis: 'limit', days };
   return { due: byUrgency, basis: 'urgency', days };
 }
+
+/** 內文寫法的日期：115年11月20日（不加「中華民國」，月日不補 0）；格式不正確回傳空字串 */
+export function limitDateText(iso: string): string {
+  const m = ISO.exec(iso);
+  if (!m) return '';
+  const year = Number(m[1]) - 1911;
+  return year < 1 ? '' : `${year}年${Number(m[2])}月${Number(m[3])}日`;
+}
+
+/**
+ * 把限期寫進主旨：定有辦理或復文期限者，要在「主旨」內敘明（文書處理手冊第十九點）。
+ * 插在期望語之前：「檢送○○一案，請查照。」→「檢送○○一案，於115年11月20日前辦理，請查照。」
+ * 主旨已寫到該日期、或主旨／限期是空的，原樣回傳。
+ */
+export function addLimitToSubject(subject: string, limit: string): string {
+  const date = limitDateText(limit);
+  const text = subject.trim();
+  if (!date || !text || text.replace(/\s/g, '').includes(date)) return subject;
+  const clause = `於${date}前辦理`;
+  const at = text.lastIndexOf('，請');
+  if (at > 0) return `${text.slice(0, at)}，${clause}${text.slice(at)}`;
+  return `${text.replace(/[。]$/, '')}，${clause}。`;
+}

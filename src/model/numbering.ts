@@ -13,12 +13,15 @@ export function toChineseNumber(n: number): string {
 
 const HEAVENLY = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
 
-/** 各層級標號：一、／(一)／1、／(1)／甲、／(甲) */
+/** 阿拉伯數字轉全形：12 → １２（文書處理手冊：分項標號以全形書寫，「（）」以半形為之） */
+const fullWidth = (n: number) => String(n).replace(/[0-9]/g, (d) => String.fromCharCode(0xff10 + Number(d)));
+
+/** 各層級標號：一、／(一)／１、／(１)／甲、／(甲)（括號半形，其餘全形） */
 const FORMATTERS: Array<(n: number) => string> = [
   (n) => `${toChineseNumber(n)}、`,
   (n) => `(${toChineseNumber(n)})`,
-  (n) => `${n}、`,
-  (n) => `(${n})`,
+  (n) => `${fullWidth(n)}、`,
+  (n) => `(${fullWidth(n)})`,
   (n) => `${HEAVENLY[(n - 1) % HEAVENLY.length]}、`,
   (n) => `(${HEAVENLY[(n - 1) % HEAVENLY.length]})`,
 ];

@@ -3,6 +3,7 @@ import { DOC_TYPES } from '../model/docTypes';
 import { toMinguoText } from '../model/date';
 import { DOWNWARD_ONLY, NOT_UPWARD, UPWARD_ONLY } from '../data/phrases';
 import { COLLOQUIAL } from './colloquial';
+import { minguoBody, writingIssues } from './writing';
 import { parseAmount } from '../model/amount';
 
 export type Severity = 'error' | 'warn' | 'info';
@@ -76,6 +77,18 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     const table = '草案對照表';
     const filled = m.rows.filter((r) => hasText(r.amended) || hasText(r.current) || hasText(r.reason));
     if (filled.length && !hasText(m.draftTitle)) add('draft-title', 'error', table, '尚未填寫草案名稱。');
+    if (hasText(m.draftTitle)) {
+      const t = m.draftTitle.trim();
+      // 法規草案標題（中央行政機關法制作業應注意事項第三、四點）
+      if (!/草案$/.test(t)) add('draft-title-form', 'warn', table, '草案名稱要以「草案」結尾，例：「○○法修正草案」「○○法部分條文修正草案」。（法制作業注意事項第四點）');
+      else if (m.mode === '新訂' && /修正/.test(t)) add('draft-title-form', 'warn', table, '新訂（制定）案的標題是「（法規名稱）草案」，不含「修正」。（法制作業注意事項第三點）');
+      else if (m.mode === '修正' && !/修正/.test(t)) add('draft-title-form', 'warn', table, '修正案的標題要有「修正」，例：「○○法修正草案」「○○法第○條修正草案」。（法制作業注意事項第四點）');
+      else if (m.mode === '修正' && filled.length >= 4 && /第[^，。]{1,20}條(?:、第[^，。]{1,8}條)*修正草案$/.test(t)) {
+        add('draft-title-count', 'info', table, '修正條文在 4 條以上、未達全部條文二分之一時，標題用「部分條文修正草案」；3 條以下才列條次。（法制作業注意事項第四點）');
+      } else if (m.mode === '修正' && filled.length <= 3 && /部分條文修正草案$/.test(t)) {
+        add('draft-title-count', 'info', table, '修正條文在 3 條以下時，標題寫「第○條修正草案」（列出條次），不用「部分條文」。（法制作業注意事項第四點）');
+      }
+    }
     if (hasText(m.draftTitle) && !filled.length) add('draft-rows', 'error', table, '草案對照表沒有任何條文。');
     filled.forEach((r, i) => {
       const n = `第 ${i + 1} 列`;
@@ -140,11 +153,11 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
   if (cfg.subject && hasText(doc.subject)) {
     const subject = doc.subject.trim();
     if (subject.length > SUBJECT_MAX) {
-      add('subject-long', 'info', cfg.subjectLabel, `${cfg.subjectLabel}共 ${subject.length} 字，建議力求簡明（約 ${SUBJECT_MAX} 字內）。`);
+      add('subject-long', 'info', cfg.subjectLabel, `${cfg.subjectLabel}共 ${subject.length} 字；主旨力求具體扼要，以不超過 ${SUBJECT_MAX} 字為原則。（公文寫作；函的概念與範例）`);
     }
     if (!/[。]$/.test(subject)) add('subject-period', 'info', cfg.subjectLabel, `${cfg.subjectLabel}結尾建議加上句號。`);
-    if (cfg.expectation && !/(請|敬請|謹請|函請)[^，。；：]*。?$/.test(subject)) {
-      add('subject-expect', 'warn', '主旨', '主旨結尾缺少期望語（如：請查照、請鑒核）。');
+    if (cfg.expectation && !/(請|敬請|謹請|函請|希)[^，。；：]*。?$/.test(subject)) {
+      add('subject-expect', 'warn', '主旨', '主旨結尾缺少期望語（如：請查照、請鑒核、請核示）。主旨 ＝ 起首語 ＋ 行文目的 ＋ 期望語。（函的概念與範例）');
     }
   }
 
@@ -154,11 +167,11 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
     const wrong =
       doc.direction === '上行'
         ? hit([...NOT_UPWARD, ...DOWNWARD_ONLY])
-        : doc.direction === '平行'
+        : doc.direction === '平行' || doc.direction === '斜行'
           ? hit([...UPWARD_ONLY, ...DOWNWARD_ONLY])
           : hit(UPWARD_ONLY);
     if (wrong.length) {
-      add('direction', 'warn', '主旨', `${doc.direction}文不宜使用「${[...new Set(wrong)].join('」「')}」，請確認行文方向或期望語。`);
+      add('direction', 'warn', '主旨', `${doc.direction}文不宜使用「${[...new Set(wrong)].join('」「')}」，請確認行文方向或期望語。（函的概念與範例「函各類用語」）`);
     }
   }
 
@@ -170,10 +183,10 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
       if (/^\d{4}-\d{2}-\d{2}$/.test(doc.date) && doc.limit < doc.date) {
         add('limit-past', 'warn', '限期辦理', '限期早於發文日期，請確認。');
       }
-      // 內文要寫明限期：例「請於114年11月20日前辦理」
-      const limitText = toMinguoText(doc.limit).replace('中華民國', '');
-      if (limitText && !body.replace(/\s/g, '').includes(limitText)) {
-        add('limit-unmentioned', 'info', '限期辦理', `已設定限期，但主旨或內文沒有寫到 ${limitText}，建議寫明（例：請於${limitText}前辦理）。`);
+      // 定有辦理或復文期限者，要在「主旨」內敘明（文書處理手冊第十九點）
+      const limitText = minguoBody(doc.limit);
+      if (cfg.subject && limitText && !doc.subject.replace(/\s/g, '').includes(limitText)) {
+        add('limit-unmentioned', 'warn', '限期辦理', `已設定限期，但主旨沒有寫到 ${limitText}。定有辦理或復文期限者，請在主旨內敘明（例：…，於${limitText}前辦理，請查照。）。（文書處理手冊第十九點）`);
       }
     }
   }
@@ -236,6 +249,8 @@ export function checkDocument(doc: OfficialDocument): Issue[] {
       add(`item-punct:${label}`, 'info', label, '部分分項結尾缺少標點（。；：）。');
     }
   }
+
+  issues.push(...writingIssues(doc, cfg, sections));
 
   return issues.sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
 }

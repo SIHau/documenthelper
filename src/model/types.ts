@@ -35,7 +35,8 @@ export interface Meeting {
 }
 
 /** 行文方向，影響期望語建議（M3） */
-export type Direction = '上行' | '平行' | '下行';
+/** 行文方向：上行、平行、下行，以及對無隸屬關係的較高級機關的斜行（稱「大」） */
+export type Direction = '上行' | '平行' | '下行' | '斜行';
 
 export type Urgency = '' | '普通件' | '速件' | '最速件';
 export type Secrecy = '' | '密' | '機密' | '極機密' | '絕對機密';
