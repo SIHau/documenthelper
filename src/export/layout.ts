@@ -444,24 +444,24 @@ export function buildBlocks(doc: OfficialDocument): Block[] {
     ['傳真', doc.contact.fax],
   ] as Array<[string, string]>).filter(([, v]) => v);
 
-  // 檔號、保存年限與承辦人等聯絡資料都放在頁面右側、左緣對齊；
-  // 左緣預設在本文 20 em 處，聯絡資料較長（如地址、電子郵件）時往左移到放得下為止
+  // 依學生會範例：檔號、保存年限靠右側（本文 20 em 處）；承辦人等聯絡資料也在右側、彼此左緣對齊，
+  // 起點在 16.5 em，資料較長（如地址、電子郵件）時往左移到放得下為止，避免折行
   const contentEm = (21 - marginXcm(doc) * 2) / (BODY_SIZE * 0.035278);
-  // 半形字估 0.6 em（含 @、數字、大寫字母），寧可往左多留一點，避免電子郵件等被折行
-  const textEm = (t: string) => [...t].reduce((w, ch) => w + (/[\u0000-ÿ]/.test(ch) ? 0.6 : 1), 0);
+  // 半形字估 0.55 em（含 @、數字、大寫字母）
+  const textEm = (t: string) => [...t].reduce((w, ch) => w + (/[\u0000-ÿ]/.test(ch) ? 0.55 : 1), 0);
   const widest = Math.max(0, ...contact.map(([k, v]) => chars(textEm(`${k}：${v}`), SMALL_SIZE)));
-  const headLeft = Math.max(0, Math.min(20, +(contentEm - widest - 1).toFixed(2)));
+  const contactLeft = Math.max(0, Math.min(16.5, +(contentEm - widest - 0.3).toFixed(2)));
 
   // 右上角檔號、保存年限（10pt）
   if (cfg.filing) {
-    line(`檔　　號：${doc.archive.fileNo}`, { indentEm: headLeft }, { size: ARCHIVE_SIZE });
-    line(`保存年限：${doc.archive.retention}`, { indentEm: headLeft }, { size: ARCHIVE_SIZE });
+    line(`檔　　號：${doc.archive.fileNo}`, { indentEm: 20 }, { size: ARCHIVE_SIZE });
+    line(`保存年限：${doc.archive.retention}`, { indentEm: 20 }, { size: ARCHIVE_SIZE });
   }
 
   line(`${doc.sender.name || '（發文機關）'}　${doc.type}`, { align: 'center', spaceBefore: cfg.filing ? 4 : 0 }, { size: TITLE_SIZE });
 
   contact.forEach(([k, v], i) => {
-    line(`${k}：${v}`, { indentEm: headLeft, spaceBefore: i === 0 ? 2 : 0 }, { size: SMALL_SIZE });
+    line(`${k}：${v}`, { indentEm: contactLeft, spaceBefore: i === 0 ? 2 : 0 }, { size: SMALL_SIZE });
   });
 
   const recipient = doc.recipient.name || (cfg.recipientRequired ? '（受文者）' : '');
