@@ -187,6 +187,12 @@ describe('分項寫法（文書處理手冊）', () => {
     expect(t).not.toContain('說明：');
   });
 
+  it('單一項說明與主旨同樣靠左，續行縮到段名之後', () => {
+    const b = buildBlocks(base([newItem(0, '依據來文辦理。')])).find((x) => x.runs.map((r) => r.text).join('') === '說明：依據來文辦理。')!;
+    expect(b.indentEm).toBe(3);
+    expect(b.hangingEm).toBe(3);
+  });
+
   it('兩項以上才冠編號並另列縮格，第三層起用全形數字', () => {
     const t = texts(base([newItem(0, '甲。'), newItem(1, '乙。'), newItem(2, '丙。'), newItem(3, '丁。')]));
     expect(t).toContain('說明：');
