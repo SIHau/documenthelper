@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { OfficialDocument } from '../model/types';
-import { buildBlocks, hasBindingLine, marginXcm, pageHeader } from '../export/layout';
+import { BODY_SIZE, buildBlocks, hasBindingLine, marginXcm, pageHeader } from '../export/layout';
 import type { Block, Run, Table } from '../export/layout';
 
 function runStyle(r: Run): CSSProperties {
@@ -15,8 +15,9 @@ function runStyle(r: Run): CSSProperties {
 function blockStyle(b: Block): CSSProperties {
   return {
     textAlign: b.align ?? 'left',
-    marginLeft: b.indentEm ? `${b.indentEm}em` : undefined,
-    textIndent: b.hangingEm ? `-${b.hangingEm}em` : undefined,
+    // 縮排以本文字級為 1em（小字級段落不能用 CSS em，否則與匯出檔不一致）
+    marginLeft: b.indentEm ? `${b.indentEm * BODY_SIZE}pt` : undefined,
+    textIndent: b.hangingEm ? `-${b.hangingEm * BODY_SIZE}pt` : undefined,
     marginTop: b.spaceBefore ? `${b.spaceBefore}pt` : undefined,
     // 整段都是小字（如檔號、發文日期）時，行高跟著縮小
     fontSize: b.runs.every((r) => r.size && r.size < 16) ? `${Math.max(...b.runs.map((r) => r.size!))}pt` : undefined,
